@@ -54,33 +54,42 @@ if st.button("🔍 VASCULHAR INTERNET"):
             resultados = buscar_ofertas(query)
             
             if resultados:
-                # O primeiro resultado da SerpApi costuma ser o melhor preço
                 top = resultados[0]
+                
+                # Pegamos o link com segurança (se não existir, fica vazio)
+                link_direto = top.get('link', '')
                 
                 st.subheader("🏆 Melhor Opção Encontrada")
                 with st.container():
                     st.markdown(f"""
                     <div class="card">
-                        <img src="{top.get('thumbnail')}" style="width:100px; float:right;">
-                        <h2 style="color:#2E7D32;">{top.get('price')}</h2>
-                        <p><b>Loja:</b> {top.get('source')}</p>
-                        <p style="font-size:14px;">{top.get('title')}</p>
+                        <img src="{top.get('thumbnail', '')}" style="width:100px; float:right;">
+                        <h2 style="color:#2E7D32;">{top.get('price', 'Consulte')}</h2>
+                        <p><b>Loja:</b> {top.get('source', 'Não informada')}</p>
+                        <p style="font-size:14px;">{top.get('title', '')}</p>
                     </div>
                     """, unsafe_allow_html=True)
-                    st.link_button("🛒 ABRIR NA LOJA", top.get('link'))
+                    
+                    # CORREÇÃO AQUI: Só cria o botão se o link for válido
+                    if link_direto:
+                        st.link_button("🛒 ABRIR NA LOJA", link_direto)
+                    else:
+                        st.warning("⚠️ Link direto indisponível nesta oferta.")
 
                 st.write("---")
                 st.write("📊 **Outras Lojas:**")
                 
-                # Lista as próximas 4 ofertas
-                for item in resultados[1:5]:
+                for item in resultados[1:6]:
                     col1, col2 = st.columns([3, 1])
+                    l_extra = item.get('link', '')
                     with col1:
-                        st.write(f"**{item.get('source')}**")
-                        st.caption(item.get('title'))
+                        st.write(f"**{item.get('source', 'Loja')}**")
+                        st.caption(item.get('title', ''))
                     with col2:
-                        st.write(f"**{item.get('price')}**")
-                    st.write(f"[Link da oferta]({item.get('link')})")
+                        st.write(f"**{item.get('price', '')}**")
+                    
+                    if l_extra:
+                        st.write(f"[Link da oferta]({l_extra})")
                     st.divider()
 
                 # --- ÁREA DO SEU LUCRO ---
@@ -90,8 +99,11 @@ if st.button("🔍 VASCULHAR INTERNET"):
                     st.write("1. Envie o PIX para sua chave.")
                     zap = st.text_input("Seu WhatsApp:")
                     if st.button("ATIVAR VIGILÂNCIA"):
-                        st.success("Tudo certo! Robô ativado para este produto.")
-                        st.balloons()
+                        if zap:
+                            st.success("Tudo certo! Robô ativado para este produto.")
+                            st.balloons()
+                        else:
+                            st.error("Digite o seu WhatsApp.")
             else:
                 st.error("Nenhum produto encontrado. Tente ser mais específico.")
     else:
