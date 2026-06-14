@@ -7,8 +7,8 @@ from moviepy.editor import AudioFileClip, ImageClip, CompositeAudioClip, Composi
 
 st.set_page_config(page_title="Super Gerador TikTok Premium", page_icon="🎬", layout="centered")
 
-st.title("🎬 Fábrica de Vídeos Longos (Vozes Humanizadas)")
-st.markdown("Gere vídeos educativos de ~1 minuto com vozes variadas, imagens proporcionais e letras gigantes.")
+st.title("🎬 Fábrica de Vídeos Longos (Versão Otimizada)")
+st.markdown("Gere vídeos educativos de ~1 minuto com alta velocidade de renderização e sem travamentos.")
 
 # Garante que a API Key existe nos Secrets do Streamlit
 try:
@@ -49,7 +49,6 @@ with st.form(key="gerador_video"):
         ("Apenas Voz Narrada", "Apenas Música de Fundo", "Voz Narrada + Música de Fundo")
     )
     
-    # 🎙️ Opções de narradores nativos e estáveis para evitar erros de pacotes
     voz_escolhida = st.selectbox(
         "Escolha o Estilo do Narrador:",
         (
@@ -60,7 +59,6 @@ with st.form(key="gerador_video"):
         )
     )
     
-    # Mapeamento estável de sotaques regionais e velocidades
     if "Fábio" in voz_escolhida:
         lang_code, tld_code, velocidade_lenta = "pt", "com.br", False
     elif "Donato" in voz_escolhida:
@@ -95,10 +93,9 @@ if botao_gerar:
                 else:
                     instrucao_estilo = "O estilo deve ser focado em VENDAS. Explique o problema, gere desejo e no final faça uma chamada de ação forte para clicar no link da bio."
 
-                # Forçando a IA a criar um roteiro robusto para preencher o tempo de vídeo
                 prompt = (f"Escreva um roteiro narrativo completo, longo e fluído para um vídeo de 1 minuto no TikTok sobre o tema: '{tema}'. "
-                          f"{instrucao_estilo} O texto deve conter entre 115 e 145 palavras no total, dividido de forma natural. "
-                          f"Retorne APENAS o texto corrido que o narrador vai falar. Não inclua títulos, não divida por cenas, sem aspas, sem asteriscos e sem parênteses.")
+                          f"{instrucao_estilo} O texto deve conter entre 115 e 135 palavras no total, dividido de forma natural. "
+                          f"Retorne APENAS o texto corrido que o narrador vai falar. Não inclua títulos, não divida por cenas, sem aspas, sem asteriscos e sem parêntenses.")
                 
                 payload = {"contents": [{"parts": [{"text": prompt}]}]}
                 response = requests.post(url, headers=headers, json=payload)
@@ -115,7 +112,6 @@ if botao_gerar:
                 audio_final_path = "audio_gerado_final.mp3"
                 arquivos_para_limpar = []
 
-                # ---- MOTOR DE ÁUDIO ESTÁVEL ----
                 def criar_audio_gtts(texto, caminho_saida, lang, tld, slow):
                     try:
                         tts = gTTS(text=texto, lang=lang, tld=tld, slow=slow)
@@ -125,7 +121,6 @@ if botao_gerar:
                         st.error(f"Erro ao gerar áudio: {e}")
                         return False
 
-                # ---- PROCESSAMENTO DE ÁUDIO ----
                 if tipo_audio == "Apenas Voz Narrada":
                     with st.spinner("🎙️ Gravando a narração personalizada..."):
                         if criar_audio_gtts(texto_do_video, audio_final_path, lang_code, tld_code, velocidade_lenta):
@@ -142,7 +137,7 @@ if botao_gerar:
                         duracao_video = min(AudioFileClip(audio_final_path).duration, 60)
                 
                 elif tipo_audio == "Voz Narrada + Música de Fundo":
-                    with st.spinner("🎛️ Mixando voz do narrador escolhido + Trilha..."):
+                    with st.spinner("🎛️ Mixando áudios de forma leve..."):
                         if criar_audio_gtts(texto_do_video, "voz_temp.mp3", lang_code, tld_code, velocidade_lenta):
                             arquivos_para_limpar.append("voz_temp.mp3")
                             with open("musica_temp.mp3", "wb") as f:
@@ -159,12 +154,11 @@ if botao_gerar:
                                 m_clip = m_clip.subclip(0, duracao_video)
                             
                             mixed_audio = CompositeAudioClip([v_clip, m_clip])
-                            mixed_audio.write_audiofile("mix_final.mp3", logger=None)
+                            mixed_audio.write_audiofile("mix_final.mp3", fps=22050, logger=None)
                             arquivos_para_limpar.append("mix_final.mp3")
                             audio_final_path = "mix_final.mp3"
                         else: st.stop()
                 
-                # ---- 🎨 DESIGN DE IMAGEM PROPORCIONAL CENTRALIZADA ----
                 with st.spinner("🎨 Redimensionando imagem de forma proporcional..."):
                     fundo_preto = Image.new("RGBA", (1080, 1920), (0, 0, 0, 255))
                     img_usuario = Image.open(imagem_carregada).convert("RGBA")
@@ -184,14 +178,13 @@ if botao_gerar:
                     fundo_preto.save("fundo_proporcional.png")
                     arquivos_para_limpar.append("fundo_proporcional.png")
 
-                # ---- ✍️ GERADOR DE LEGENDAS GIGANTES CORRIGIDO ----
                 with st.spinner("✍️ Desenhando blocos de legendas ultra visíveis..."):
                     frases_brutas = [f.strip() for f in texto_do_video.replace(".", "|").replace("!", "|").replace("?", "|").split("|") if f.strip()]
                     
                     blocos_legendas = []
                     bloco_atual = ""
                     for f in frases_brutas:
-                        if len(bloco_atual + " " + f) < 65:
+                        if len(bloco_atual + " " + f) < 60:
                             bloco_atual = f"{bloco_atual} {f}".strip()
                         else:
                             if bloco_atual: blocos_legendas.append(bloco_atual)
@@ -209,7 +202,7 @@ if botao_gerar:
                         linhas_trecho = []
                         linha_aux = ""
                         for p in palavras_trecho:
-                            if len(linha_aux + " " + p) < 18:
+                            if len(linha_aux + " " + p) < 16:
                                 linha_aux = f"{linha_aux} {p}".strip()
                             else:
                                 linhas_trecho.append(linha_aux)
@@ -227,7 +220,6 @@ if botao_gerar:
                                 largura_box = len(linha) * 32
                                 draw.rectangle([x_base - 20, y_base - 10, x_base + largura_box + 20, y_base + 80], fill=(0,0,0,180))
                                 
-                                # FIX DE ARGUMENTO: 'linha' adicionado corretamente nas sombras das letras gigantes
                                 for ox in [-2, -1, 0, 1, 2]:
                                     for oy in [-2, -1, 0, 1, 2]:
                                         draw.text((x_base + ox, y_base + oy), linha, fill=(0,0,0,255))
@@ -247,7 +239,7 @@ if botao_gerar:
                                     .set_end(end_f))
                         lista_clips_legendas.append(clip_text)
 
-                # ---- COMPOSIÇÃO E EXPORTAÇÃO FINAL DO VÍDEO COMPLETO ----
+                # ---- 🚀 RENDERIZAÇÃO ULTRA ACELERADA PARA EVITAR TIMEOUT ----
                 with st.spinner("🎬 Renderizando arquivo final de alta duração..."):
                     with AudioFileClip(audio_final_path) as audio_clip:
                         clip_fundo_base = ImageClip("fundo_proporcional.png").set_duration(duracao_video)
@@ -255,9 +247,11 @@ if botao_gerar:
                         video_com_legendas = CompositeVideoClip([clip_fundo_base] + lista_clips_legendas)
                         video_final = video_com_legendas.set_audio(audio_clip)
                         
+                        # Adicionado preset ultrafast e threads para passar direto pelo servidor sem travar
                         video_final.write_videofile(
                             "video_final_tiktok.mp4", fps=24, codec="libx264", 
-                            audio_codec="aac", ffmpeg_params=["-pix_fmt", "yuv420p"], logger=None
+                            audio_codec="aac", ffmpeg_params=["-pix_fmt", "yuv420p"],
+                            preset="ultrafast", threads=4, logger=None
                         )
                 
                 st.success(f"🎉 VÍDEO DE 1 MINUTO GERADO COM SUCESSO! Tempo final: {int(duracao_video)} segundos.")
