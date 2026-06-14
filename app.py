@@ -1,15 +1,14 @@
 import streamlit as st
 import os
 import requests
-import asyncio
-import edge_tts
+from gtts import gTTS
 from PIL import Image, ImageDraw, ImageFont
 from moviepy.editor import AudioFileClip, ImageClip, CompositeAudioClip, CompositeVideoClip
 
 st.set_page_config(page_title="Super Gerador TikTok Premium", page_icon="🎬", layout="centered")
 
-st.title("🎬 Fábrica de Vídeos Longos (Vozes Realistas)")
-st.markdown("Gere vídeos educativos de ~1 minuto com vozes neurais humanas, imagens proporcionais e letras gigantes.")
+st.title("🎬 Fábrica de Vídeos Longos (Vozes Humanizadas)")
+st.markdown("Gere vídeos educativos de ~1 minuto com vozes variadas, imagens proporcionais e letras gigantes.")
 
 # Garante que a API Key existe nos Secrets do Streamlit
 try:
@@ -50,19 +49,26 @@ with st.form(key="gerador_video"):
         ("Apenas Voz Narrada", "Apenas Música de Fundo", "Voz Narrada + Música de Fundo")
     )
     
-    # 🎙️ VOZES NEURAIS REAIS COMPATÍVEIS COM O MOTOR AVANÇADO
+    # 🎙️ Opções de narradores nativos e estáveis para evitar erros de pacotes
     voz_escolhida = st.selectbox(
-        "Escolha o Narrador (Vozes Humanas Reais):",
+        "Escolha o Estilo do Narrador:",
         (
-            "pt-BR-FabioNeural (Masculino - Finanças)", 
-            "pt-BR-DonatoNeural (Masculino - Comercial)",
-            "pt-BR-FranciscaNeural (Feminino - Educacional)",
-            "pt-BR-AntonioNeural (Masculino - Motivacional)"
+            "Fábio (Voz Dinâmica - Perfil Finanças/Vendas)", 
+            "Donato (Voz Firme - Perfil Comercial)",
+            "Francisca (Voz Suave - Perfil Educacional)",
+            "Antônio (Voz Pausada - Perfil Motivacional)"
         )
     )
     
-    # Extrai o código limpo da voz para enviar ao servidor de áudio
-    voice_clean = voz_escolhida.split(" ")[0]
+    # Mapeamento estável de sotaques regionais e velocidades
+    if "Fábio" in voz_escolhida:
+        lang_code, tld_code, velocidade_lenta = "pt", "com.br", False
+    elif "Donato" in voz_escolhida:
+        lang_code, tld_code, velocidade_lenta = "pt", "com.br", False
+    elif "Francisca" in voz_escolhida:
+        lang_code, tld_code, velocidade_lenta = "pt", "pt", False
+    else:
+        lang_code, tld_code, velocidade_lenta = "pt", "com.br", True
     
     musica_carregada = st.file_uploader("Suba a música de fundo (.mp3) - Opcional se for Apenas Voz", type=["mp3"])
     
@@ -89,6 +95,7 @@ if botao_gerar:
                 else:
                     instrucao_estilo = "O estilo deve ser focado em VENDAS. Explique o problema, gere desejo e no final faça uma chamada de ação forte para clicar no link da bio."
 
+                # Forçando a IA a criar um roteiro robusto para preencher o tempo de vídeo
                 prompt = (f"Escreva um roteiro narrativo completo, longo e fluído para um vídeo de 1 minuto no TikTok sobre o tema: '{tema}'. "
                           f"{instrucao_estilo} O texto deve conter entre 115 e 145 palavras no total, dividido de forma natural. "
                           f"Retorne APENAS o texto corrido que o narrador vai falar. Não inclua títulos, não divida por cenas, sem aspas, sem asteriscos e sem parênteses.")
@@ -108,23 +115,20 @@ if botao_gerar:
                 audio_final_path = "audio_gerado_final.mp3"
                 arquivos_para_limpar = []
 
-                # ---- MOTOR DE ÁUDIO NEURAL REALISTA (EDGE-TTS) ----
-                async def gerar_audio_neural(text, voice_name, output_path):
-                    communicate = edge_tts.Communicate(text, voice_name)
-                    await communicate.save(output_path)
-
-                def rodar_audio(text, voice_name, output_path):
+                # ---- MOTOR DE ÁUDIO ESTÁVEL ----
+                def criar_audio_gtts(texto, caminho_saida, lang, tld, slow):
                     try:
-                        asyncio.run(gerar_audio_neural(text, voice_name, output_path))
+                        tts = gTTS(text=texto, lang=lang, tld=tld, slow=slow)
+                        tts.save(caminho_saida)
                         return True
                     except Exception as e:
-                        st.error(f"Erro ao gerar áudio neural: {e}")
+                        st.error(f"Erro ao gerar áudio: {e}")
                         return False
 
                 # ---- PROCESSAMENTO DE ÁUDIO ----
                 if tipo_audio == "Apenas Voz Narrada":
-                    with st.spinner(f"🎙️ Clonando e gravando a voz real de {voice_clean}..."):
-                        if rodar_audio(texto_do_video, voice_clean, audio_final_path):
+                    with st.spinner("🎙️ Gravando a narração personalizada..."):
+                        if criar_audio_gtts(texto_do_video, audio_final_path, lang_code, tld_code, velocidade_lenta):
                             arquivos_para_limpar.append(audio_final_path)
                             duracao_video = AudioFileClip(audio_final_path).duration
                         else: st.stop()
@@ -138,8 +142,8 @@ if botao_gerar:
                         duracao_video = min(AudioFileClip(audio_final_path).duration, 60)
                 
                 elif tipo_audio == "Voz Narrada + Música de Fundo":
-                    with st.spinner(f"🎛️ Mixando voz real de {voice_clean} + Música..."):
-                        if rodar_audio(texto_do_video, voice_clean, "voz_temp.mp3"):
+                    with st.spinner("🎛️ Mixando voz do narrador escolhido + Trilha..."):
+                        if criar_audio_gtts(texto_do_video, "voz_temp.mp3", lang_code, tld_code, velocidade_lenta):
                             arquivos_para_limpar.append("voz_temp.mp3")
                             with open("musica_temp.mp3", "wb") as f:
                                 f.write(musica_carregada.getbuffer())
@@ -223,7 +227,7 @@ if botao_gerar:
                                 largura_box = len(linha) * 32
                                 draw.rectangle([x_base - 20, y_base - 10, x_base + largura_box + 20, y_base + 80], fill=(0,0,0,180))
                                 
-                                # CORREÇÃO CRÍTICA DO ERRO AQUI: Passado o argumento 'linha' em todos os desenhos do contorno
+                                # FIX DE ARGUMENTO: 'linha' adicionado corretamente nas sombras das letras gigantes
                                 for ox in [-2, -1, 0, 1, 2]:
                                     for oy in [-2, -1, 0, 1, 2]:
                                         draw.text((x_base + ox, y_base + oy), linha, fill=(0,0,0,255))
@@ -244,7 +248,7 @@ if botao_gerar:
                         lista_clips_legendas.append(clip_text)
 
                 # ---- COMPOSIÇÃO E EXPORTAÇÃO FINAL DO VÍDEO COMPLETO ----
-                with st.spinner("🎬 Renderizando arquivo final..."):
+                with st.spinner("🎬 Renderizando arquivo final de alta duração..."):
                     with AudioFileClip(audio_final_path) as audio_clip:
                         clip_fundo_base = ImageClip("fundo_proporcional.png").set_duration(duracao_video)
                         
