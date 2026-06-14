@@ -1,6 +1,6 @@
 import streamlit as st
 import os
-import google.generativeai as genai
+import requests
 import asyncio
 import edge_tts
 from PIL import Image, ImageDraw, ImageFont
@@ -9,10 +9,17 @@ from moviepy.editor import AudioFileClip, ImageClip, CompositeAudioClip
 st.set_page_config(page_title="Super Gerador TikTok Grátis", page_icon="🎬", layout="centered")
 
 st.title("🎬 Fábrica de Vídeos (100% Gratuita)")
-st.markdown("Configure o estilo do seu vídeo usando a IA gratuita do Google.")
+st.markdown("Configure o estilo do seu vídeo abaixo e deixe a IA trabalhar.")
+
+# Puxando a chave automaticamente e de forma segura dos Secrets do Streamlit
+try:
+    api_key = st.secrets["GEMINI_API_KEY"]
+except Exception:
+    st.error("❌ Chave API não encontrada nos Secrets do Streamlit! Verifique se digitou GEMINI_API_KEY corretamente nas configurações.")
+    st.stop()
 
 with st.form(key="gerador_video"):
-    api_key = st.text_input("Sua Gemini API Key (Gratuita):", type="password")
+    # A CAIXA DA CHAVE API FOI REMOVIDA DA TELA!
     tema = st.text_input("Qual o tema do vídeo?", placeholder="Ex: Por que os grandes players usam paridade cambial")
     imagem_carregada = st.file_uploader("Suba sua imagem de fundo (.png ou .jpg)", type=["png", "jpg"])
     
@@ -36,28 +43,40 @@ with st.form(key="gerador_video"):
     botao_gerar = st.form_submit_button(label="🚀 GERAR MEU VÍDEO GRATUITO")
 
 if botao_gerar:
-    if not api_key or not tema or not imagem_carregada:
-        st.error("❌ Por favor, preencha a Gemini API Key, o Tema e envie a Imagem!")
+    if not tema or not imagem_carregada:
+        st.error("❌ Por favor, preencha o Tema e envie a Imagem!")
     elif "Música" in tipo_audio and not musica_carregada:
         st.error("❌ Você selecionou uma opção com música, mas não enviou o arquivo .mp3!")
     else:
         with st.spinner("🤖 Google Gemini pensando no roteiro perfeito..."):
             try:
-                # Configuração atualizada da API do Google
-                genai.configure(api_key=api_key)
+                # Requisição direta para o endpoint estável atual do Gemini 2.5 Flash
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+                headers = {'Content-Type': 'application/json'}
                 
                 tamanho_max = "máximo 40 segundos de leitura" if "Voz" in tipo_audio else "máximo 140 caracteres"
                 prompt = f"Escreva um texto curto e altamente focado em conversão/vendas para o TikTok sobre o tema: {tema}. Tamanho ideal: {tamanho_max}. Retorne APENAS o texto puro que vai na tela, sem indicações de cena, sem aspas e sem parênteses."
                 
-                # Mudança crucial: Chamando o modelo moderno correto aceito pela biblioteca nova
-                model = genai.GenerativeModel(model_name='gemini-1.5-flash')
-                response = model.generate_content(prompt)
-                texto_do_video = response.text.strip()
+                payload = {
+                    "contents": [{
+                        "parts": [{"text": prompt}]
+                    }]
+                }
+                
+                response = requests.post(url, headers=headers, json=payload)
+                response_json = response.json()
+                
+                if response.status_code != 200:
+                    st.error(f"Erro na API do Google: {response_json.get('error', {}).get('message', 'Erro desconhecido')}")
+                    st.stop()
+                
+                texto_do_video = response_json['candidates'][0]['content']['parts'][0]['text'].strip()
                 st.info(f"📜 **Roteiro Gerado pelo Gemini:**\n\n_{texto_do_video}_")
                 
                 audio_final_path = "audio_gerado_final.mp3"
                 arquivos_para_limpar = []
                 
+                # ---- CRIAÇÃO DO ÁUDIO ----
                 if tipo_audio == "Apenas Voz Narrada":
                     with st.spinner("🎙️ Gerando narração grátis..."):
                         async def gerar_voz():
@@ -97,11 +116,11 @@ if botao_gerar:
                         audio_final_path = "mix_final.mp3"
                         duracao_video = v_clip.duration
                 
+                # ---- PROCESSANDO A IMAGEM ----
                 with st.spinner("🎨 Aplicando design nas legendas..."):
                     imagem_fundo = Image.open(imagem_carregada)
                     imagem_fundo = imagem_fundo.resize((1080, 1920))
                     canvas = ImageDraw.Draw(imagem_fundo)
-                    
                     font = ImageFont.load_default()
                         
                     palavras = texto_do_video.split()
@@ -113,7 +132,8 @@ if botao_gerar:
                         else:
                             linhas.append(linha_atual)
                             linha_atual = palavra
-                    if linha_atual: linhas.append(linha_atual)
+                    if linha_atual: 
+                        linhas.append(linha_atual)
                     
                     y_text = (1920 - (len(linhas) * 85)) // 2
                     for linha in list(dict.fromkeys(linhas)):
@@ -124,6 +144,7 @@ if botao_gerar:
                     imagem_fundo.save("fundo_final.png")
                     arquivos_para_limpar.append("fundo_final.png")
                 
+                # ---- RENDERIZANDO O VÍDEO FINAL ----
                 with st.spinner("🎬 Criando MP4 final..."):
                     with AudioFileClip(audio_final_path) as audio_clip:
                         if tipo_audio == "Apenas Música de Fundo":
