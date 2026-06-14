@@ -1,14 +1,15 @@
 import streamlit as st
 import os
 import requests
+import urllib.parse
 from gtts import gTTS
 from PIL import Image, ImageDraw, ImageFont
 from moviepy.editor import AudioFileClip, ImageClip, CompositeVideoClip
 
 st.set_page_config(page_title="Super Gerador TikTok Premium", page_icon="🎬", layout="centered")
 
-st.title("🎬 Fábrica de Vídeos Longos (Super Veloz)")
-st.markdown("Gerador otimizado para renderizar vídeos de ~1 minuto com máxima performance e velocidade.")
+st.title("🎬 Fábrica de Vídeos 100% Automática")
+st.markdown("Digite apenas o tema! O robô criará o roteiro, a narração e a imagem de fundo sozinho.")
 
 # Garante que a API Key existe nos Secrets do Streamlit
 try:
@@ -18,7 +19,7 @@ except Exception:
     st.stop()
 
 with st.form(key="gerador_video"):
-    tema = st.text_input("Qual o tema do vídeo?", placeholder="Ex: 5 passos para organizar suas finanças pessoais hoje")
+    tema = st.text_input("Qual o tema do vídeo?", placeholder="Ex: Curiosidades sobre o espaço ou Como investir sendo jovem")
     
     objetivo_video = st.selectbox(
         "Qual o Objetivo/Estilo do Vídeo?",
@@ -30,11 +31,8 @@ with st.form(key="gerador_video"):
         )
     )
     
-    imagem_carregada = st.file_uploader("Suba sua imagem de fundo (.png ou .jpg)", type=["png", "jpg"])
-    
     st.markdown("---")
     st.subheader("🎨 Posição das Legendas")
-    
     posicao_texto = st.radio(
         "Onde a legenda deve aparecer?",
         ("No Topo (Parte Superior)", "No Fundo (Parte Inferior)"),
@@ -46,7 +44,7 @@ with st.form(key="gerador_video"):
     
     tipo_audio = st.radio(
         "Como quer o áudio do vídeo?",
-        ("Apenas Voz Narrada", "Apenas Música de Fundo", "Voz Narrada + Música de Fundo")
+        ("Apenas Voz Narrada", "Voz Narrada + Música de Fundo")
     )
     
     voz_escolhida = st.selectbox(
@@ -71,24 +69,25 @@ with st.form(key="gerador_video"):
     musica_carregada = st.file_uploader("Suba a música de fundo (.mp3) - Opcional se for Apenas Voz", type=["mp3"])
     
     st.markdown("---")
-    botao_gerar = st.form_submit_button(label="🚀 GERAR VÍDEO COMPLETO (~1 MINUTO)")
+    botao_gerar = st.form_submit_button(label="🚀 GERAR VÍDEO COMPLETO DO ZERO")
 
 if botao_gerar:
-    if not tema or not imagem_carregada:
-        st.error("❌ Por favor, preencha o Tema e envie a Imagem!")
+    if not tema:
+        st.error("❌ Por favor, digite um tema para o seu vídeo!")
     elif "Música" in tipo_audio and not musica_carregada:
         st.error("❌ Você selecionou uma opção com música, mas não enviou o arquivo .mp3!")
     else:
-        # Criamos o container do progresso para o usuário acompanhar de forma limpa
         status = st.empty()
+        arquivos_para_limpar = []
         
         try:
+            # ---------------- STEP 1: GERAR ROTEIRO ----------------
             status.info("🤖 1/5 | Google Gemini escrevendo roteiro fluido...")
             url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
             headers = {'Content-Type': 'application/json'}
             
             if "Dica" in objetivo_video:
-                instrucao_estilo = "O estilo deve ser EDUCACIONAL, de alto valor. Forneça parágrafos corridos e contínuos. SEM tópicos, SEM aspas e sem a palavra bio."
+                instrucao_estilo = "O estilo deve ser EDUCACIONAL. Forneça parágrafos corridos e contínuos. SEM tópicos, SEM aspas e sem a palavra bio."
             elif "Conselho" in objetivo_video:
                 instrucao_estilo = "O estilo deve ser um CONSELHO profundo e motivacional. Crie parágrafos reflexivos e contínuos."
             elif "Curiosidade" in objetivo_video:
@@ -112,38 +111,57 @@ if botao_gerar:
             texto_do_video = texto_do_video.replace("**", "").replace("*", "").replace('"', '').replace("- ", "")
             st.info(f"📜 **Roteiro Gerado:** {texto_do_video}")
             
+            # ---------------- STEP 2: AUDIO NARRADO ----------------
             audio_final_path = "audio_gerado_final.mp3"
-            arquivos_para_limpar = []
-
             status.info("🎙️ 2/5 | Gerando arquivo de voz humanizada...")
             tts = gTTS(text=texto_do_video, lang=lang_code, tld=tld_code, slow=velocidade_lenta)
             tts.save(audio_final_path)
             arquivos_para_limpar.append(audio_final_path)
             
-            # Captura a duração real baseada na fala do robô
             with AudioFileClip(audio_final_path) as audio_clip_real:
                 duracao_video = audio_clip_real.duration
 
-            # Se contiver música de fundo, processa de forma independente e simples
             if "Música" in tipo_audio:
                 status.info("🎵 Mixando faixa de áudio secundária...")
                 with open("musica_temp.mp3", "wb") as f:
                     f.write(musica_carregada.getbuffer())
                 arquivos_para_limpar.append("musica_temp.mp3")
                 
-                # Para evitar travar no processamento de áudio composto pesado, usamos comando ffmpeg direto no sistema
-                if tipo_audio == "Voz Narrada + Música de Fundo":
-                    os.system(f'ffmpeg -y -i {audio_final_path} -stream_loop -1 -i musica_temp.mp3 -filter_complex "[1:a]volume=0.12[bg];[0:a][bg]amix=inputs=2:duration=first" -c:a mp3 mix_final.mp3 >/dev/null 2>&1')
-                    audio_final_path = "mix_final.mp3"
-                    arquivos_para_limpar.append("mix_final.mp3")
-                else:
-                    os.system(f'ffmpeg -y -i musica_temp.mp3 -ss 0 -t {duracao_video} -c:a mp3 mix_final.mp3 >/dev/null 2>&1')
-                    audio_final_path = "mix_final.mp3"
-                    arquivos_para_limpar.append("mix_final.mp3")
+                os.system(f'ffmpeg -y -i {audio_final_path} -stream_loop -1 -i musica_temp.mp3 -filter_complex "[1:a]volume=0.12[bg];[0:a][bg]amix=inputs=2:duration=first" -c:a mp3 mix_final.mp3 >/dev/null 2>&1')
+                audio_final_path = "mix_final.mp3"
+                arquivos_para_limpar.append("mix_final.mp3")
 
-            status.info("🎨 3/5 | Processando imagem de fundo inteligente...")
+            # ---------------- STEP 3: BUSCA AUTOMÁTICA DE IMAGEM ----------------
+            status.info("🖼️ 3/5 | Procurando e baixando imagem de fundo ideal para o tema...")
+            
+            # Limpa o tema para criar uma palavra-chave de busca simples
+            palavra_chave = tema.split()[0] if len(tema.split()) > 0 else "abstract"
+            termo_busca = urllib.parse.quote(palavra_chave)
+            
+            # Baixa uma imagem randômica focada no tema usando o Source do Unsplash
+            url_imagem_auto = f"https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1080&q=80" # Fallback tecnológico
+            try:
+                # Tentativa de pegar uma imagem dinâmica baseada no tema
+                url_dinamica = f"https://source.unsplash.com/featured/1080x1050/?{termo_busca}"
+                img_res = requests.get(url_dinamica, timeout=10)
+                if img_res.status_code == 200:
+                    with open("imagem_baixada.jpg", "wb") as f:
+                        f.write(img_res.content)
+                else:
+                    # Segundo Fallback caso a rota dinâmica falhe
+                    img_res = requests.get("https://picsum.photos/1080/1050", timeout=10)
+                    with open("imagem_baixada.jpg", "wb") as f:
+                        f.write(img_res.content)
+            except:
+                # Se a internet falhar, cria um fundo azul escuro elegante por segurança
+                img_fallback = Image.new("RGBA", (1080, 1050), (15, 23, 42, 255))
+                img_fallback.save("imagem_baixada.jpg")
+
+            arquivos_para_limpar.append("imagem_baixada.jpg")
+
+            # Processa e centraliza no formato vertical do TikTok (1080x1920)
             fundo_preto = Image.new("RGBA", (1080, 1920), (0, 0, 0, 255))
-            img_usuario = Image.open(imagem_carregada).convert("RGBA")
+            img_usuario = Image.open("imagem_baixada.jpg").convert("RGBA")
             
             largura_orig, altura_orig = img_usuario.size
             proporcao = min(1080 / largura_orig, 1050 / altura_orig)
@@ -158,6 +176,7 @@ if botao_gerar:
             fundo_preto.save("fundo_proporcional.png")
             arquivos_para_limpar.append("fundo_proporcional.png")
 
+            # ---------------- STEP 4: GERAR LEGENDAS ----------------
             status.info("✍️ 4/5 | Fatiando blocos rápidos de legendas...")
             frases_brutas = [f.strip() for f in texto_do_video.replace(".", "|").replace("!", "|").replace("?", "|").split("|") if f.strip()]
             
@@ -174,7 +193,6 @@ if botao_gerar:
             tempo_por_bloco = duracao_video / len(blocos_legendas)
             lista_clips_legendas = []
 
-            # A grande otimização: Criamos imagens pequenas localizadas, não do tamanho da tela inteira!
             for idx, trecho in enumerate(blocos_legendas):
                 palavras_trecho = trecho.split()
                 linhas_trecho = []
@@ -187,7 +205,6 @@ if botao_gerar:
                         linha_aux = p
                 if linha_aux: linhas_trecho.append(linha_aux)
                 
-                # Desenha uma janela compacta economizando uso de RAM
                 img_texto = Image.new("RGBA", (1080, 400), (0, 0, 0, 0))
                 draw = ImageDraw.Draw(img_texto)
                 
@@ -211,7 +228,6 @@ if botao_gerar:
                 img_texto.save(nome_legenda_file)
                 arquivos_para_limpar.append(nome_legenda_file)
                 
-                # Reposiciona o pequeno bloco de forma estática sem processar transparências vazias na tela toda
                 eixo_y_final = 150 if "Topo" in posicao_texto else 1450
                 
                 clip_text = (ImageClip(nome_legenda_file)
@@ -220,32 +236,30 @@ if botao_gerar:
                             .set_position((0, eixo_y_final)))
                 lista_clips_legendas.append(clip_text)
 
-            status.info("🎬 5/5 | Montagem final rápida (Aceleração Ativada)...")
+            # ---------------- STEP 5: COMPILAR VÍDEO ----------------
+            status.info("🎬 5/5 | Montagem final super veloz ativa...")
             clip_fundo_base = ImageClip("fundo_proporcional.png").set_duration(duracao_video)
             video_com_legendas = CompositeVideoClip([clip_fundo_base] + lista_clips_legendas, size=(1080, 1920))
             
-            # Vincula o áudio de uma só vez evitando fragmentação de memória
             video_final = video_com_legendas.set_audio(AudioFileClip(audio_final_path))
             
-            # Renderização forçada em baixíssimo consumo usando perfil ultrafast
             video_final.write_videofile(
                 "video_final_tiktok.mp4", fps=24, codec="libx264", 
                 audio_codec="aac", preset="ultrafast", threads=4, 
                 logger=None, ffmpeg_params=["-pix_fmt", "yuv420p"]
             )
             
-            # Fecha os clipes para libertar os ficheiros imediatamente da memória RAM
             video_final.close()
             clip_fundo_base.close()
             
             status.empty()
-            st.success(f"🎉 VÍDEO DE 1 MINUTO GERADO COM SUCESSO! Duração: {int(duracao_video)} segundos.")
+            st.success(f"🎉 SEU VÍDEO COMPLETO E AUTOMÁTICO FOI GERADO! Duração: {int(duracao_video)} segundos.")
             
             with open("video_final_tiktok.mp4", "rb") as file:
                 st.download_button(
                     label="📥 DOWNLOAD DO VÍDEO PRONTO",
                     data=file,
-                    file_name="video_tiktok_longo.mp4",
+                    file_name="video_automatico.mp4",
                     mime="video/mp4"
                 )
             
