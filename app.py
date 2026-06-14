@@ -3,12 +3,12 @@ import os
 import requests
 from gtts import gTTS
 from PIL import Image, ImageDraw, ImageFont
-from moviepy.editor import AudioFileClip, ImageClip, CompositeAudioClip, CompositeVideoClip
+from moviepy.editor import AudioFileClip, ImageClip, CompositeVideoClip
 
 st.set_page_config(page_title="Super Gerador TikTok Premium", page_icon="🎬", layout="centered")
 
-st.title("🎬 Fábrica de Vídeos Longos (Versão Otimizada)")
-st.markdown("Gere vídeos educativos de ~1 minuto com alta velocidade de renderização e sem travamentos.")
+st.title("🎬 Fábrica de Vídeos Longos (Super Veloz)")
+st.markdown("Gerador otimizado para renderizar vídeos de ~1 minuto com máxima performance e velocidade.")
 
 # Garante que a API Key existe nos Secrets do Streamlit
 try:
@@ -79,195 +79,180 @@ if botao_gerar:
     elif "Música" in tipo_audio and not musica_carregada:
         st.error("❌ Você selecionou uma opção com música, mas não enviou o arquivo .mp3!")
     else:
-        with st.spinner("🤖 Google Gemini escrevendo um roteiro completo de 1 minuto..."):
-            try:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
-                headers = {'Content-Type': 'application/json'}
+        # Criamos o container do progresso para o usuário acompanhar de forma limpa
+        status = st.empty()
+        
+        try:
+            status.info("🤖 1/5 | Google Gemini escrevendo roteiro fluido...")
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+            headers = {'Content-Type': 'application/json'}
+            
+            if "Dica" in objetivo_video:
+                instrucao_estilo = "O estilo deve ser EDUCACIONAL, de alto valor. Forneça parágrafos corridos e contínuos. SEM tópicos, SEM aspas e sem a palavra bio."
+            elif "Conselho" in objetivo_video:
+                instrucao_estilo = "O estilo deve ser um CONSELHO profundo e motivacional. Crie parágrafos reflexivos e contínuos."
+            elif "Curiosidade" in objetivo_video:
+                instrucao_estilo = "O estilo deve ser focado em CURIOSIDADES SURPREENDENTES em formato narrativo corrido."
+            else:
+                instrucao_estilo = "O estilo deve ser focado em VENDAS. Explique o problema, gere desejo e direcione para a ação."
+
+            prompt = (f"Escreva um roteiro narrativo completo, longo e corrido para um vídeo de 1 minuto no TikTok sobre o tema: '{tema}'. "
+                      f"{instrucao_estilo} O texto deve conter exatamente entre 110 e 125 palavras. "
+                      f"Retorne APENAS o texto puro sem títulos, sem indicações de cena, sem aspas e sem asteriscos.")
+            
+            payload = {"contents": [{"parts": [{"text": prompt}]}]}
+            response = requests.post(url, headers=headers, json=payload)
+            response_json = response.json()
+            
+            if response.status_code != 200:
+                st.error(f"Erro na API do Google: {response_json.get('error', {}).get('message', 'Erro desconhecido')}")
+                st.stop()
+            
+            texto_do_video = response_json['candidates'][0]['content']['parts'][0]['text'].strip()
+            texto_do_video = texto_do_video.replace("**", "").replace("*", "").replace('"', '').replace("- ", "")
+            st.info(f"📜 **Roteiro Gerado:** {texto_do_video}")
+            
+            audio_final_path = "audio_gerado_final.mp3"
+            arquivos_para_limpar = []
+
+            status.info("🎙️ 2/5 | Gerando arquivo de voz humanizada...")
+            tts = gTTS(text=texto_do_video, lang=lang_code, tld=tld_code, slow=velocidade_lenta)
+            tts.save(audio_final_path)
+            arquivos_para_limpar.append(audio_final_path)
+            
+            # Captura a duração real baseada na fala do robô
+            with AudioFileClip(audio_final_path) as audio_clip_real:
+                duracao_video = audio_clip_real.duration
+
+            # Se contiver música de fundo, processa de forma independente e simples
+            if "Música" in tipo_audio:
+                status.info("🎵 Mixando faixa de áudio secundária...")
+                with open("musica_temp.mp3", "wb") as f:
+                    f.write(musica_carregada.getbuffer())
+                arquivos_para_limpar.append("musica_temp.mp3")
                 
-                if "Dica" in objetivo_video:
-                    instrucao_estilo = "O estilo deve ser EDUCACIONAL, aprofundado e rico em conteúdo. Dê dicas úteis detalhadas divididas em tópicos ou parágrafos fluídos. NÃO cite vendas, NÃO fale em comprar e JAMAIS use a palavra 'bio' ou links."
-                elif "Conselho" in objetivo_video:
-                    instrucao_estilo = "O estilo deve ser um CONSELHO profundo, com tom maduro, sábio e focado em desenvolvimento pessoal. Crie parágrafos reflexivos e impactantes."
-                elif "Curiosidade" in objetivo_video:
-                    instrucao_estilo = "O estilo deve ser focado em CURIOSIDADES SURPREENDENTES. Explique a história ou a ciência por trás do tema detalhadamente para manter o usuário assistindo até o fim."
+                # Para evitar travar no processamento de áudio composto pesado, usamos comando ffmpeg direto no sistema
+                if tipo_audio == "Voz Narrada + Música de Fundo":
+                    os.system(f'ffmpeg -y -i {audio_final_path} -stream_loop -1 -i musica_temp.mp3 -filter_complex "[1:a]volume=0.12[bg];[0:a][bg]amix=inputs=2:duration=first" -c:a mp3 mix_final.mp3 >/dev/null 2>&1')
+                    audio_final_path = "mix_final.mp3"
+                    arquivos_para_limpar.append("mix_final.mp3")
                 else:
-                    instrucao_estilo = "O estilo deve ser focado em VENDAS. Explique o problema, gere desejo e no final faça uma chamada de ação forte para clicar no link da bio."
+                    os.system(f'ffmpeg -y -i musica_temp.mp3 -ss 0 -t {duracao_video} -c:a mp3 mix_final.mp3 >/dev/null 2>&1')
+                    audio_final_path = "mix_final.mp3"
+                    arquivos_para_limpar.append("mix_final.mp3")
 
-                prompt = (f"Escreva um roteiro narrativo completo, longo e fluído para um vídeo de 1 minuto no TikTok sobre o tema: '{tema}'. "
-                          f"{instrucao_estilo} O texto deve conter entre 115 e 135 palavras no total, dividido de forma natural. "
-                          f"Retorne APENAS o texto corrido que o narrador vai falar. Não inclua títulos, não divida por cenas, sem aspas, sem asteriscos e sem parêntenses.")
-                
-                payload = {"contents": [{"parts": [{"text": prompt}]}]}
-                response = requests.post(url, headers=headers, json=payload)
-                response_json = response.json()
-                
-                if response.status_code != 200:
-                    st.error(f"Erro na API do Google: {response_json.get('error', {}).get('message', 'Erro desconhecido')}")
-                    st.stop()
-                
-                texto_do_video = response_json['candidates'][0]['content']['parts'][0]['text'].strip()
-                texto_do_video = texto_do_video.replace("**", "").replace("*", "").replace('"', '').replace("- ", "")
-                st.info(f"📜 **Roteiro Gerado pelo Gemini:**\n\n{texto_do_video}")
-                
-                audio_final_path = "audio_gerado_final.mp3"
-                arquivos_para_limpar = []
+            status.info("🎨 3/5 | Processando imagem de fundo inteligente...")
+            fundo_preto = Image.new("RGBA", (1080, 1920), (0, 0, 0, 255))
+            img_usuario = Image.open(imagem_carregada).convert("RGBA")
+            
+            largura_orig, altura_orig = img_usuario.size
+            proporcao = min(1080 / largura_orig, 1050 / altura_orig)
+            nova_largura = int(largura_orig * proporcao)
+            nova_altura = int(altura_orig * proporcao)
+            
+            img_redimensionada = img_usuario.resize((nova_largura, nova_altura))
+            pos_x = (1080 - nova_largura) // 2
+            pos_y = (1920 - nova_altura) // 2
+            
+            fundo_preto.paste(img_redimensionada, (pos_x, pos_y), img_redimensionada)
+            fundo_preto.save("fundo_proporcional.png")
+            arquivos_para_limpar.append("fundo_proporcional.png")
 
-                def criar_audio_gtts(texto, caminho_saida, lang, tld, slow):
-                    try:
-                        tts = gTTS(text=texto, lang=lang, tld=tld, slow=slow)
-                        tts.save(caminho_saida)
-                        return True
-                    except Exception as e:
-                        st.error(f"Erro ao gerar áudio: {e}")
-                        return False
-
-                if tipo_audio == "Apenas Voz Narrada":
-                    with st.spinner("🎙️ Gravando a narração personalizada..."):
-                        if criar_audio_gtts(texto_do_video, audio_final_path, lang_code, tld_code, velocidade_lenta):
-                            arquivos_para_limpar.append(audio_final_path)
-                            duracao_video = AudioFileClip(audio_final_path).duration
-                        else: st.stop()
-                
-                elif tipo_audio == "Apenas Música de Fundo":
-                    with st.spinner("🎵 Configurando música de fundo..."):
-                        with open("musica_temp.mp3", "wb") as f:
-                            f.write(musica_carregada.getbuffer())
-                        arquivos_para_limpar.append("musica_temp.mp3")
-                        audio_final_path = "musica_temp.mp3"
-                        duracao_video = min(AudioFileClip(audio_final_path).duration, 60)
-                
-                elif tipo_audio == "Voz Narrada + Música de Fundo":
-                    with st.spinner("🎛️ Mixando áudios de forma leve..."):
-                        if criar_audio_gtts(texto_do_video, "voz_temp.mp3", lang_code, tld_code, velocidade_lenta):
-                            arquivos_para_limpar.append("voz_temp.mp3")
-                            with open("musica_temp.mp3", "wb") as f:
-                                f.write(musica_carregada.getbuffer())
-                            arquivos_para_limpar.append("musica_temp.mp3")
-                            
-                            v_clip = AudioFileClip("voz_temp.mp3")
-                            duracao_video = v_clip.duration
-                            
-                            m_clip = AudioFileClip("musica_temp.mp3").volumex(0.12)
-                            if m_clip.duration < duracao_video:
-                                m_clip = m_clip.loop(duration=duracao_video)
-                            else:
-                                m_clip = m_clip.subclip(0, duracao_video)
-                            
-                            mixed_audio = CompositeAudioClip([v_clip, m_clip])
-                            mixed_audio.write_audiofile("mix_final.mp3", fps=22050, logger=None)
-                            arquivos_para_limpar.append("mix_final.mp3")
-                            audio_final_path = "mix_final.mp3"
-                        else: st.stop()
-                
-                with st.spinner("🎨 Redimensionando imagem de forma proporcional..."):
-                    fundo_preto = Image.new("RGBA", (1080, 1920), (0, 0, 0, 255))
-                    img_usuario = Image.open(imagem_carregada).convert("RGBA")
-                    
-                    largura_orig, altura_orig = img_usuario.size
-                    max_largura, max_altura = 1080, 1000 
-                    
-                    proporcao = min(max_largura / largura_orig, max_altura / altura_orig)
-                    nova_largura = int(largura_orig * proporcao)
-                    nova_altura = int(altura_orig * proporcao)
-                    
-                    img_redimensionada = img_usuario.resize((nova_largura, nova_altura))
-                    pos_x = (1080 - nova_largura) // 2
-                    pos_y = (1920 - nova_altura) // 2
-                    
-                    fundo_preto.paste(img_redimensionada, (pos_x, pos_y), img_redimensionada)
-                    fundo_preto.save("fundo_proporcional.png")
-                    arquivos_para_limpar.append("fundo_proporcional.png")
-
-                with st.spinner("✍️ Desenhando blocos de legendas ultra visíveis..."):
-                    frases_brutas = [f.strip() for f in texto_do_video.replace(".", "|").replace("!", "|").replace("?", "|").split("|") if f.strip()]
-                    
-                    blocos_legendas = []
-                    bloco_atual = ""
-                    for f in frases_brutas:
-                        if len(bloco_atual + " " + f) < 60:
-                            bloco_atual = f"{bloco_atual} {f}".strip()
-                        else:
-                            if bloco_atual: blocos_legendas.append(bloco_atual)
-                            bloco_atual = f
+            status.info("✍️ 4/5 | Fatiando blocos rápidos de legendas...")
+            frases_brutas = [f.strip() for f in texto_do_video.replace(".", "|").replace("!", "|").replace("?", "|").split("|") if f.strip()]
+            
+            blocos_legendas = []
+            bloco_atual = ""
+            for f in frases_brutas:
+                if len(bloco_atual + " " + f) < 55:
+                    bloco_atual = f"{bloco_atual} {f}".strip()
+                else:
                     if bloco_atual: blocos_legendas.append(bloco_atual)
+                    bloco_atual = f
+            if bloco_atual: blocos_legendas.append(bloco_atual)
+            
+            tempo_por_bloco = duracao_video / len(blocos_legendas)
+            lista_clips_legendas = []
+
+            # A grande otimização: Criamos imagens pequenas localizadas, não do tamanho da tela inteira!
+            for idx, trecho in enumerate(blocos_legendas):
+                palavras_trecho = trecho.split()
+                linhas_trecho = []
+                linha_aux = ""
+                for p in palavras_trecho:
+                    if len(linha_aux + " " + p) < 16:
+                        linha_aux = f"{linha_aux} {p}".strip()
+                    else:
+                        linhas_trecho.append(linha_aux)
+                        linha_aux = p
+                if linha_aux: linhas_trecho.append(linha_aux)
+                
+                # Desenha uma janela compacta economizando uso de RAM
+                img_texto = Image.new("RGBA", (1080, 400), (0, 0, 0, 0))
+                draw = ImageDraw.Draw(img_texto)
+                
+                y_local = 20
+                for linha in linhas_trecho:
+                    if linha:
+                        x_base = (1080 - (len(linha) * 29)) // 2
+                        if x_base < 40: x_base = 40
+                        
+                        largura_box = len(linha) * 32
+                        draw.rectangle([x_base - 15, y_local - 5, x_base + largura_box + 15, y_local + 75], fill=(0,0,0,170))
+                        
+                        for ox in [-2, -1, 1, 2]:
+                            for oy in [-2, -1, 1, 2]:
+                                draw.text((x_base + ox, y_local + oy), linha, fill=(0,0,0,255))
+                        
+                        draw.text((x_base, y_local), linha, fill=(255, 234, 0, 255))
+                        y_local += 80
+                
+                nome_legenda_file = f"layer_{idx}.png"
+                img_texto.save(nome_legenda_file)
+                arquivos_para_limpar.append(nome_legenda_file)
+                
+                # Reposiciona o pequeno bloco de forma estática sem processar transparências vazias na tela toda
+                eixo_y_final = 150 if "Topo" in posicao_texto else 1450
+                
+                clip_text = (ImageClip(nome_legenda_file)
+                            .set_start(idx * tempo_por_bloco)
+                            .set_end((idx + 1) * tempo_por_bloco)
+                            .set_position((0, eixo_y_final)))
+                lista_clips_legendas.append(clip_text)
+
+            status.info("🎬 5/5 | Montagem final rápida (Aceleração Ativada)...")
+            clip_fundo_base = ImageClip("fundo_proporcional.png").set_duration(duracao_video)
+            video_com_legendas = CompositeVideoClip([clip_fundo_base] + lista_clips_legendas, size=(1080, 1920))
+            
+            # Vincula o áudio de uma só vez evitando fragmentação de memória
+            video_final = video_com_legendas.set_audio(AudioFileClip(audio_final_path))
+            
+            # Renderização forçada em baixíssimo consumo usando perfil ultrafast
+            video_final.write_videofile(
+                "video_final_tiktok.mp4", fps=24, codec="libx264", 
+                audio_codec="aac", preset="ultrafast", threads=4, 
+                logger=None, ffmpeg_params=["-pix_fmt", "yuv420p"]
+            )
+            
+            # Fecha os clipes para libertar os ficheiros imediatamente da memória RAM
+            video_final.close()
+            clip_fundo_base.close()
+            
+            status.empty()
+            st.success(f"🎉 VÍDEO DE 1 MINUTO GERADO COM SUCESSO! Duração: {int(duracao_video)} segundos.")
+            
+            with open("video_final_tiktok.mp4", "rb") as file:
+                st.download_button(
+                    label="📥 DOWNLOAD DO VÍDEO PRONTO",
+                    data=file,
+                    file_name="video_tiktok_longo.mp4",
+                    mime="video/mp4"
+                )
+            
+            arquivos_para_limpar.append("video_final_tiktok.mp4")
+            for arquivo in arquivos_para_limpar:
+                if os.path.exists(arquivo):
+                    os.remove(arquivo)
                     
-                    tempo_por_bloco = duracao_video / len(blocos_legendas)
-                    lista_clips_legendas = []
-
-                    for idx, trecho in enumerate(blocos_legendas):
-                        img_texto = Image.new("RGBA", (1080, 1920), (0, 0, 0, 0))
-                        draw = ImageDraw.Draw(img_texto)
-                        
-                        palavras_trecho = trecho.split()
-                        linhas_trecho = []
-                        linha_aux = ""
-                        for p in palavras_trecho:
-                            if len(linha_aux + " " + p) < 16:
-                                linha_aux = f"{linha_aux} {p}".strip()
-                            else:
-                                linhas_trecho.append(linha_aux)
-                                linha_aux = p
-                        if linha_aux: linhas_trecho.append(linha_aux)
-                        
-                        y_base = 180 if "Topo" in posicao_texto else 1500
-                        
-                        for linha in linhas_trecho:
-                            if linha:
-                                tam_letra_aprox = 58
-                                x_base = (1080 - (len(linha) * (tam_letra_aprox // 2))) // 2
-                                if x_base < 40: x_base = 40
-                                
-                                largura_box = len(linha) * 32
-                                draw.rectangle([x_base - 20, y_base - 10, x_base + largura_box + 20, y_base + 80], fill=(0,0,0,180))
-                                
-                                for ox in [-2, -1, 0, 1, 2]:
-                                    for oy in [-2, -1, 0, 1, 2]:
-                                        draw.text((x_base + ox, y_base + oy), linha, fill=(0,0,0,255))
-                                
-                                draw.text((x_base, y_base), linha, fill=(255, 234, 0, 255))
-                                y_base += 85
-                        
-                        nome_legenda_file = f"layer_{idx}.png"
-                        img_texto.save(nome_legenda_file)
-                        arquivos_para_limpar.append(nome_legenda_file)
-                        
-                        start_f = idx * tempo_por_bloco
-                        end_f = (idx + 1) * tempo_por_bloco
-                        
-                        clip_text = (ImageClip(nome_legenda_file)
-                                    .set_start(start_f)
-                                    .set_end(end_f))
-                        lista_clips_legendas.append(clip_text)
-
-                # ---- 🚀 RENDERIZAÇÃO ULTRA ACELERADA PARA EVITAR TIMEOUT ----
-                with st.spinner("🎬 Renderizando arquivo final de alta duração..."):
-                    with AudioFileClip(audio_final_path) as audio_clip:
-                        clip_fundo_base = ImageClip("fundo_proporcional.png").set_duration(duracao_video)
-                        
-                        video_com_legendas = CompositeVideoClip([clip_fundo_base] + lista_clips_legendas)
-                        video_final = video_com_legendas.set_audio(audio_clip)
-                        
-                        # Adicionado preset ultrafast e threads para passar direto pelo servidor sem travar
-                        video_final.write_videofile(
-                            "video_final_tiktok.mp4", fps=24, codec="libx264", 
-                            audio_codec="aac", ffmpeg_params=["-pix_fmt", "yuv420p"],
-                            preset="ultrafast", threads=4, logger=None
-                        )
-                
-                st.success(f"🎉 VÍDEO DE 1 MINUTO GERADO COM SUCESSO! Tempo final: {int(duracao_video)} segundos.")
-                
-                with open("video_final_tiktok.mp4", "rb") as file:
-                    st.download_button(
-                        label="📥 BAIXAR MEU VÍDEO DE 1 MINUTO",
-                        data=file,
-                        file_name="video_educativo_longo.mp4",
-                        mime="video/mp4"
-                    )
-                
-                arquivos_para_limpar.append("video_final_tiktok.mp4")
-                for arquivo in arquivos_para_limpar:
-                    if os.path.exists(arquivo):
-                        os.remove(arquivo)
-                        
-            except Exception as e:
-                st.error(f"Erro inesperado no sistema: {e}")
+        except Exception as e:
+            st.error(f"Erro inesperado no sistema: {e}")
