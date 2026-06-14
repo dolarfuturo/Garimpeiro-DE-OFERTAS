@@ -7,8 +7,8 @@ from moviepy.editor import AudioFileClip, ImageClip, CompositeAudioClip
 
 st.set_page_config(page_title="Super Gerador TikTok Grátis", page_icon="🎬", layout="centered")
 
-st.title("🎬 Fábrica de Vídeos Rápida (Imagem + Tema)")
-st.markdown("Insira o tema, defina o objetivo, suba sua foto de fundo e crie o vídeo perfeito com a IA.")
+st.title("🎬 Fábrica de Vídeos (100% Gratuita)")
+st.markdown("Configure o estilo do seu vídeo abaixo e deixe a IA trabalhar.")
 
 # Garante que a API Key existe nos Secrets do Streamlit
 try:
@@ -19,18 +19,6 @@ except Exception:
 
 with st.form(key="gerador_video"):
     tema = st.text_input("Qual o tema do vídeo?", placeholder="Ex: Por que os grandes players usam paridade cambial")
-    
-    # 🎯 NOVO CAMPO: OBJETIVO DO VÍDEO
-    objetivo_video = st.selectbox(
-        "Qual o Objetivo/Estilo do Vídeo?",
-        (
-            "Dica / Educacional (Focado em ensinar e agregar valor)", 
-            "Conselho / Motivacional (Focado em reflexão e engajamento)", 
-            "Curiosidade (Focado em prender a atenção com fatos)", 
-            "Venda / Conversão (Focado em direcionar para o link na bio)"
-        )
-    )
-    
     imagem_carregada = st.file_uploader("Suba sua imagem de fundo (.png ou .jpg)", type=["png", "jpg"])
     
     st.markdown("---")
@@ -42,7 +30,7 @@ with st.form(key="gerador_video"):
     )
     
     voz_escolhida = st.selectbox(
-        "Escolha o Sotaque da Voz:",
+        "Escolha o Idioma/Sotaque da Voz:",
         ("Português (Brasil)", "Português (Portugal)")
     )
     lang_code = "pt"
@@ -51,7 +39,7 @@ with st.form(key="gerador_video"):
     musica_carregada = st.file_uploader("Suba a música de fundo (.mp3) - Opcional se for Apenas Voz", type=["mp3"])
     
     st.markdown("---")
-    botao_gerar = st.form_submit_button(label="🚀 GERAR MEU VÍDEO RÁPIDO")
+    botao_gerar = st.form_submit_button(label="🚀 GERAR MEU VÍDEO GRATUITO")
 
 if botao_gerar:
     if not tema or not imagem_carregada:
@@ -61,23 +49,12 @@ if botao_gerar:
     else:
         with st.spinner("🤖 Google Gemini pensando no roteiro perfeito..."):
             try:
-                # Chamada direta para o Gemini 2.5 Flash via API estável
+                # Chamada direta para o Gemini 2.5 Flash
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
                 headers = {'Content-Type': 'application/json'}
                 
-                # Engenharia de prompt dinâmica baseada no objetivo escolhido pelo usuário
-                if "Dica" in objetivo_video:
-                    instrucao_estilo = "O estilo deve ser puramente EDUCACIONAL e instrutivo, focado em dar dicas práticas passo a passo. NÃO tente vender nada, NÃO fale sobre comprar, NÃO fale sobre produtos e NÃO mencione 'link na bio'."
-                elif "Conselho" in objetivo_video:
-                    instrucao_estilo = "O estilo deve ser de CONSELHO ou MOTIVACIONAL, com um tom reflexivo, profundo e inspirador. Focado em gerar identificação com quem está assistindo. NÃO mencione vendas ou links."
-                elif "Curiosidade" in objetivo_video:
-                    instrucao_estilo = "O estilo deve ser focado em CURIOSIDADE. Comece com um gancho forte (ex: 'Você sabia que...' ou 'Existe um fato estranho...'). Deve ser dinâmico e intrigante. NÃO mencione vendas."
-                else:
-                    instrucao_estilo = "O estilo deve ser focado em VENDA e CONVERSÃO direta. Faça um gancho forte, apresente o problema e chame o usuário para clicar no link da bio para resolver ou comprar."
-
                 tamanho_max = "máximo 35 segundos de leitura" if "Voz" in tipo_audio else "máximo 140 caracteres"
-                
-                prompt = f"Escreva um texto curto e dinâmico para o TikTok sobre o tema: '{tema}'. {instrucao_estilo} Tamanho: {tamanho_max}. Retorne APENAS o texto puro do roteiro corrida, sem indicações de cena, sem aspas, sem asteriscos e sem parênteses."
+                prompt = f"Escreva um texto curto e focado em conversão/vendas para o TikTok sobre o tema: {tema}. Tamanho: {tamanho_max}. Retorne APENAS o texto puro, sem indicações de cena, sem aspas, sem asteriscos e sem parênteses."
                 
                 payload = {"contents": [{"parts": [{"text": prompt}]}]}
                 response = requests.post(url, headers=headers, json=payload)
@@ -94,7 +71,7 @@ if botao_gerar:
                 audio_final_path = "audio_gerado_final.mp3"
                 arquivos_para_limpar = []
 
-                # ---- MOTOR DE ÁUDIO ESTÁVEL (gTTS) ----
+                # ---- NOVO MOTOR DE ÁUDIO ULTRA ESTÁVEL (gTTS) ----
                 def criar_audio_gtts(texto, caminho_saida, lang, tld):
                     try:
                         tts = gTTS(text=texto, lang=lang, tld=tld, slow=False)
@@ -106,7 +83,7 @@ if botao_gerar:
 
                 # ---- CRIAÇÃO DO ÁUDIO ----
                 if tipo_audio == "Apenas Voz Narrada":
-                    with st.spinner("🎙️ Gerando narração..."):
+                    with st.spinner("🎙️ Gerando narração 100% estável..."):
                         if criar_audio_gtts(texto_do_video, audio_final_path, lang_code, tld_code):
                             arquivos_para_limpar.append(audio_final_path)
                             duracao_video = AudioFileClip(audio_final_path).duration
@@ -143,45 +120,29 @@ if botao_gerar:
                             st.stop()
                 
                 # ---- PROCESSANDO A IMAGEM E LEGENDA ----
-                with st.spinner("🎨 Aplicando Super Legendas Estilo TikTok..."):
+                with st.spinner("🎨 Alinhando design e legendas..."):
                     imagem_fundo = Image.open(imagem_carregada)
                     imagem_fundo = imagem_fundo.resize((1080, 1920))
                     canvas = ImageDraw.Draw(imagem_fundo)
-                    
-                    try:
-                        font = ImageFont.truetype("LiberationSans-Bold.ttf", 55)
-                    except IOError:
-                        try:
-                            font = ImageFont.truetype("Arial.ttf", 55)
-                        except IOError:
-                            font = ImageFont.load_default()
+                    font = ImageFont.load_default()
                         
                     palavras = texto_do_video.split()
                     linhas = []
                     linha_atual = ""
-                    
-                    for palabra in palavras:
-                        test_linha = f"{linha_atual} {palabra}".strip()
-                        if len(test_linha) < 24:
-                            linha_atual = test_linha
+                    for palavra in palavras:
+                        if len(linha_atual + " " + palavra) < 28:
+                            linha_atual = f"{linha_atual} {palavra}".strip()
                         else:
                             linhas.append(linha_atual)
-                            linha_atual = palabra
+                            linha_atual = palavra
                     if linha_atual: 
                         linhas.append(linha_atual)
                     
-                    y_text = (1920 - (len(linhas) * 100)) // 2
-                    for linha in linhas:
+                    y_text = (1920 - (len(linhas) * 85)) // 2
+                    for linha in list(dict.fromkeys(linhas)):
                         if linha:
-                            x_text = (1080 - (len(linha) * 28)) // 2
-                            if x_text < 50: x_text = 50
-                            
-                            for adj_x in [-3, 0, 3]:
-                                for adj_y in [-3, 0, 3]:
-                                    canvas.text((x_text + adj_x, y_text + adj_y), linha, font=font, fill="black")
-                            
-                            canvas.text((x_text, y_text), linha, font=font, fill="white")
-                            y_text += 100
+                            canvas.text((100, y_text), linha, font=font, fill="white", stroke_width=2, stroke_fill="black")
+                            y_text += 85
                         
                     imagem_fundo.save("fundo_final.png")
                     arquivos_para_limpar.append("fundo_final.png")
