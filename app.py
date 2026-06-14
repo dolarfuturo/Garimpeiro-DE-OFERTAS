@@ -1,7 +1,6 @@
 import streamlit as st
 import os
 import requests
-import random
 from gtts import gTTS
 from PIL import Image, ImageDraw, ImageFont
 from moviepy.editor import AudioFileClip, ImageClip, CompositeVideoClip
@@ -9,14 +8,13 @@ from moviepy.editor import AudioFileClip, ImageClip, CompositeVideoClip
 st.set_page_config(page_title="Super Gerador TikTok Premium", page_icon="🎬", layout="centered")
 
 st.title("🎬 Fábrica de Vídeos 100% Automática")
-st.markdown("Digite apenas o tema! O robô criará o roteiro, buscará a imagem oficial e fará a narração sozinho.")
+st.markdown("Digite apenas o tema! O robô criará o roteiro, a narração e buscará o fundo sozinho (Sem chaves extras).")
 
-# Garante que as API Keys existem nos Secrets do Streamlit
+# Garante que a API Key existe nos Secrets do Streamlit
 try:
-    gemini_key = st.secrets["GEMINI_API_KEY"]
-    pexels_key = st.secrets["PEXELS_API_KEY"]
+    api_key = st.secrets["GEMINI_API_KEY"]
 except Exception:
-    st.error("❌ Chaves API não encontradas nos Secrets! Certifique-se de configurar 'GEMINI_API_KEY' e 'PEXELS_API_KEY'.")
+    st.error("❌ Chave API não encontrada nos Secrets do Streamlit! Verifique se configurou 'GEMINI_API_KEY' corretamente.")
     st.stop()
 
 with st.form(key="gerador_video"):
@@ -28,7 +26,7 @@ with st.form(key="gerador_video"):
             "Dica / Educacional (Focado em ensinar e agregar valor)", 
             "Conselho / Motivacional (Focado em reflexão e engajamento)", 
             "Curiosidade (Focado em prender a atenção com fatos)", 
-            "Venda / Conversão (Focado em fazer chamada de ação)"
+            "Venda / Conversão (Focado em direcionar para o link na bio)"
         )
     )
     
@@ -42,6 +40,7 @@ with st.form(key="gerador_video"):
     
     st.markdown("---")
     st.subheader("🎵 Configurações de Narração")
+    
     tipo_audio = st.radio(
         "Como quer o áudio do vídeo?",
         ("Apenas Voz Narrada", "Voz Narrada + Música de Fundo")
@@ -81,23 +80,23 @@ if botao_gerar:
         arquivos_para_limpar = []
         
         try:
-            # ---------------- STEP 1: GERAR ROTEIRO OTIMIZADO ----------------
+            # ---------------- STEP 1: GERAR ROTEIRO ----------------
             status.info("🤖 1/5 | Google Gemini escrevendo roteiro fluido...")
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
             headers = {'Content-Type': 'application/json'}
             
             if "Dica" in objetivo_video:
-                instrucao_estilo = "O estilo deve ser EDUCACIONAL. Forneça parágrafos corridos e contínuos. SEM tópicos, SEM aspas e sem links."
+                instrucao_estilo = "O estilo deve ser EDUCACIONAL. Forneça parágrafos corridos e contínuos. SEM tópicos, SEM aspas e sem a palavra bio."
             elif "Conselho" in objetivo_video:
                 instrucao_estilo = "O estilo deve ser um CONSELHO profundo e motivacional. Crie parágrafos reflexivos e contínuos."
             elif "Curiosidade" in objetivo_video:
                 instrucao_estilo = "O estilo deve ser focado em CURIOSIDADES SURPREENDENTES em formato narrativo corrido."
             else:
-                instrucao_estilo = "O estilo deve ser focado em VENDAS. Explique o problema, gere desejo e direcione para a ação rápida."
+                instrucao_estilo = "O estilo deve ser focado em VENDAS. Explique o problema, gere desejo e direcione para a ação."
 
             prompt = (f"Escreva um roteiro narrativo completo, longo e corrido para um vídeo de 1 minuto no TikTok sobre o tema: '{tema}'. "
                       f"{instrucao_estilo} O texto deve conter exatamente entre 110 e 125 palavras. "
-                      f"Retorne APENAS o texto puro sem títulos, sem indicações de cena, sem aspas, sem R$ e sem asteriscos.")
+                      f"Retorne APENAS o texto puro sem títulos, sem indicações de cena, sem aspas, sem símbolos monetários e sem asteriscos.")
             
             payload = {"contents": [{"parts": [{"text": prompt}]}]}
             response = requests.post(url, headers=headers, json=payload)
@@ -131,41 +130,31 @@ if botao_gerar:
                 audio_final_path = "mix_final.mp3"
                 arquivos_para_limpar.append("mix_final.mp3")
 
-            # ---------------- STEP 3: BUSCA ESTÁVEL DE IMAGEM (PEXELS API) ----------------
-            status.info("🖼️ 3/5 | Buscando imagem oficial HD alinhada ao tema...")
+            # ---------------- STEP 3: REQUISIÇÃO DE IMAGEM ESTÁVEL ----------------
+            status.info("🖼️ 3/5 | Baixando imagem HD automatizada para o plano de fundo...")
             
-            palavra_busca = tema.split()[0] if len(tema.split()) > 0 else "finance"
-            headers_pexels = {"Authorization": pexels_key}
-            url_pexels = f"https://api.pexels.com/v1/search?query={palavra_busca}&per_page=5&orientation=portrait"
-            
-            img_salva = False
+            # Usando uma rota pública direta de alta performance que não exige API Keys
+            url_gerador_imagem = "https://picsum.photos/1080/1350"
             try:
-                res_p = requests.get(url_pexels, headers=headers_pexels, timeout=10)
-                if res_p.status_code == 200:
-                    dados_p = res_p.json()
-                    if dados_p.get("photos"):
-                        # Escolhe uma foto aleatória dentre as 5 encontradas para dar variedade
-                        foto_url = random.choice(dados_p["photos"])["src"]["large2x"]
-                        img_data = requests.get(foto_url, timeout=10).content
-                        with open("imagem_baixada.jpg", "wb") as f:
-                            f.write(img_data)
-                        img_salva = True
+                img_res = requests.get(url_gerador_imagem, timeout=12)
+                if img_res.status_code == 200:
+                    with open("imagem_baixada.jpg", "wb") as f:
+                        f.write(img_res.content)
+                else:
+                    raise Exception()
             except:
-                pass
-
-            if not img_salva:
-                # Fallback seguro caso dê qualquer erro de conexão externa
-                img_fallback = Image.new("RGBA", (1080, 1050), (20, 25, 35, 255))
+                # Fallback seguro local caso as duas plataformas externas falhem temporariamente
+                img_fallback = Image.new("RGBA", (1080, 1350), (24, 28, 36, 255))
                 img_fallback.save("imagem_baixada.jpg")
 
             arquivos_para_limpar.append("imagem_baixada.jpg")
 
-            # Montagem do layout vertical TikTok (1080x1920)
+            # Processa e centraliza no formato vertical padrão do TikTok (1080x1920)
             fundo_preto = Image.new("RGBA", (1080, 1920), (0, 0, 0, 255))
             img_usuario = Image.open("imagem_baixada.jpg").convert("RGBA")
             
             largura_orig, altura_orig = img_usuario.size
-            proporcao = min(1080 / largura_orig, 1050 / altura_orig)
+            proporcao = min(1080 / largura_orig, 1100 / altura_orig)
             nova_largura = int(largura_orig * proporcao)
             nova_altura = int(altura_orig * proporcao)
             
@@ -204,7 +193,7 @@ if botao_gerar:
                     else:
                         linhas_trecho.append(linha_aux)
                         linha_aux = p
-                if App_aux := linha_aux: linhas_trecho.append(App_aux)
+                if linha_aux: linhas_trecho.append(linha_aux)
                 
                 img_texto = Image.new("RGBA", (1080, 400), (0, 0, 0, 0))
                 draw = ImageDraw.Draw(img_texto)
@@ -234,7 +223,7 @@ if botao_gerar:
                 clip_text = (ImageClip(nome_legenda_file)
                             .set_start(idx * tempo_por_bloco)
                             .set_end((idx + 1) * tempo_por_bloco)
-                            .set_position((0, eixo_y_final)))
+                            .set_position((0, Find_y := eixo_y_final)))
                 lista_clips_legendas.append(clip_text)
 
             # ---------------- STEP 5: COMPILAR VÍDEO ----------------
