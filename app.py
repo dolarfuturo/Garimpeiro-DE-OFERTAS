@@ -30,6 +30,7 @@ with st.form(key="gerador_video"):
         )
     )
     
+    # 📸 O CAMPO DE IMAGEM ESTÁ AQUI ATIVO
     imagem_carregada = st.file_uploader("Suba sua imagem de fundo (.png ou .jpg)", type=["png", "jpg"])
     
     st.markdown("---")
@@ -49,7 +50,7 @@ with st.form(key="gerador_video"):
         ("Apenas Voz Narrada", "Apenas Música de Fundo", "Voz Narrada + Música de Fundo")
     )
     
-    # 🎙️ VOLTARAM AS VOZES PERSONALIZADAS COMO ESTAVA ANTES
+    # 🎙️ VOZES PERSONALIZADAS COM NOME E NICHO
     voz_escolhida = st.selectbox(
         "Escolha o Narrador (se houver voz):",
         (
@@ -60,7 +61,7 @@ with st.form(key="gerador_video"):
         )
     )
     
-    # Configuração interna para manter a compatibilidade e estabilidade do gTTS
+    # Configuração interna estável
     lang_code = "pt"
     tld_code = "com.br"
     velocidade_lenta = True if "Motivacional" in voz_escolhida else False
@@ -82,7 +83,7 @@ if botao_gerar:
                 headers = {'Content-Type': 'application/json'}
                 
                 if "Dica" in objetivo_video:
-                    instrucao_estilo = "O estilo deve ser EDUCACIONAL, aprofundado e rico em conteúdo. Dê dicas úteis detalhadas divididas em tópicos ou parágrafos fluídos. NÃO cite vendas, NÃO fale em comprar e JAMAIS use a palavra 'bio' ou links."
+                    instrucao_estilo = "O estilo deve be EDUCACIONAL, aprofundado e rico em conteúdo. Dê dicas úteis detalhadas divididas em tópicos ou parágrafos fluídos. NÃO cite vendas, NÃO fale em comprar e JAMAIS use a palavra 'bio' ou links."
                 elif "Conselho" in objetivo_video:
                     instrucao_estilo = "O estilo deve ser um CONSELHO profundo, com tom maduro, sábio e focado em desenvolvimento pessoal. Crie parágrafos reflexivos e impactantes."
                 elif "Curiosidade" in objetivo_video:
@@ -90,7 +91,7 @@ if botao_gerar:
                 else:
                     instrucao_estilo = "O estilo deve ser focado em VENDAS. Explique o problema, gere desejo e no final faça uma chamada de ação forte para clicar no link da bio."
 
-                # Forçando um prompt robusto para dar tempo de leitura de até 60 segundos
+                # Forçando geração de texto longa para ocupar cerca de 1 minuto
                 prompt = (f"Escreva um roteiro narrativo completo, longo e fluído para um vídeo de 1 minuto no TikTok sobre o tema: '{tema}'. "
                           f"{instrucao_estilo} O texto deve conter entre 115 e 145 palavras no total, dividido de forma natural. "
                           f"Retorne APENAS o texto corrido que o narrador vai falar. Não inclua títulos, não divida por cenas, sem aspas, sem asteriscos e sem parênteses.")
@@ -120,9 +121,9 @@ if botao_gerar:
                         st.error(f"Erro ao gerar áudio: {e}")
                         return False
 
-                # ---- PROCESSAMENTO DE ÁUDIO ----
+                # ---- PROCESSAMENTO DE ÁUDIO (Voz Corrigida Aqui) ----
                 if tipo_audio == "Apenas Voz Narrada":
-                    with st.spinner(f"🎙️ Gravando a narração com estilo de {voz_chosen.split(' ')[0]}..."):
+                    with st.spinner(f"🎙️ Gravando a narração com estilo de {voz_escolhida.split(' ')[0]}..."):
                         if criar_audio_gtts(texto_do_video, audio_final_path, lang_code, tld_code, velocidade_lenta):
                             arquivos_para_limpar.append(audio_final_path)
                             duracao_video = AudioFileClip(audio_final_path).duration
@@ -224,7 +225,7 @@ if botao_gerar:
                                 
                                 for ox in [-2, -1, 0, 1, 2]:
                                     for oy in [-2, -1, 0, 1, 2]:
-                                        draw.text((x_base + ox, y_base + oy), linha, fill=(0,0,0,255))
+                                        draw.text((x_base + ox, y_base + oy), fill=(0,0,0,255))
                                 
                                 draw.text((x_base, y_base), linha, fill=(255, 234, 0, 255))
                                 y_base += 85
