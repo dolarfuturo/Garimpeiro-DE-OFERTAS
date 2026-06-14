@@ -1,112 +1,154 @@
 import streamlit as st
-import pandas as pd
-import requests
+import os
+import google.generativeai as genai
+import asyncio
+import edge_tts
+from PIL import Image, ImageDraw, ImageFont
+from moviepy.editor import AudioFileClip, ImageClip, CompositeAudioClip
 
-# Configuração de Página para Celular
-st.set_page_config(page_title="Garimpeiro de Ofertas", page_icon="💰")
+st.set_page_config(page_title="Super Gerador TikTok Grátis", page_icon="🎬", layout="centered")
 
-# Chave que você copiou
-API_KEY = "f8cfed50639a72002e65c721b3db1d5e57f91ea6246c1f69e75495145a1f5b13"
+st.title("🎬 Fábrica de Vídeos (100% Gratuita)")
+st.markdown("Configure o estilo do seu vídeo usando a IA gratuita do Google.")
 
-# Estilo Visual Profissional
-st.markdown("""
-    <style>
-    .main { background-color: #f5f7f9; }
-    div.stButton > button:first-child {
-        height: 3.5em; width: 100%; border-radius: 12px;
-        font-size: 20px; font-weight: bold; background-color: #2E7D32; color: white;
-    }
-    .card {
-        background-color: white; padding: 15px; border-radius: 15px;
-        box-shadow: 0px 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-st.title("💰 Garimpeiro de Ofertas")
-st.write("Pesquisa global em tempo real (Farmácias e Lojas)")
-
-# --- FUNÇÃO DE BUSCA VIA SERPAPI ---
-def buscar_ofertas(produto):
-    url = "https://serpapi.com/search"
-    params = {
-        "engine": "google_shopping",
-        "q": produto,
-        "hl": "pt-br",
-        "gl": "br",
-        "api_key": API_KEY
-    }
+with st.form(key="gerador_video"):
+    api_key = st.text_input("Sua Gemini API Key (Gratuita):", type="password")
+    tema = st.text_input("Qual o tema do vídeo?", placeholder="Ex: Por que os grandes players usam paridade cambial")
+    imagem_carregada = st.file_uploader("Suba sua imagem de fundo (.png ou .jpg)", type=["png", "jpg"])
     
-    try:
-        response = requests.get(url, params=params, timeout=15)
-        data = response.json()
-        return data.get("shopping_results", [])
-    except Exception as e:
-        st.error(f"Erro na conexão: {e}")
-        return []
+    st.markdown("---")
+    st.subheader("🎵 Configurações de Áudio")
+    
+    tipo_audio = st.radio(
+        "Como quer o áudio do vídeo?",
+        ("Apenas Voz Narrada", "Apenas Música de Fundo", "Voz Narrada + Música de Fundo")
+    )
+    
+    voz_escolhida = st.selectbox(
+        "Escolha o Narrador (se houver voz):",
+        ("pt-BR-FabioNeural (Masculino - Finanças)", "pt-BR-FranciscaNeural (Feminino - Dinâmico)")
+    )
+    cod_voz = voz_escolhida.split()[0]
+    
+    musica_carregada = st.file_uploader("Suba a música de fundo (.mp3) - Opcional se for Apenas Voz", type=["mp3"])
+    
+    st.markdown("---")
+    botao_gerar = st.form_submit_button(label="🚀 GERAR MEU VÍDEO GRATUITO")
 
-# --- INTERFACE ---
-query = st.text_input("O que você busca?", placeholder="Ex: Fralda Pampers G")
-
-if st.button("🔍 VASCULHAR INTERNET"):
-    if query:
-        with st.spinner('Acessando servidores...'):
-            resultados = buscar_ofertas(query)
-            
-            if resultados:
-                top = resultados[0]
-                
-                # Pegamos o link com segurança (se não existir, fica vazio)
-                link_direto = top.get('link', '')
-                
-                st.subheader("🏆 Melhor Opção Encontrada")
-                with st.container():
-                    st.markdown(f"""
-                    <div class="card">
-                        <img src="{top.get('thumbnail', '')}" style="width:100px; float:right;">
-                        <h2 style="color:#2E7D32;">{top.get('price', 'Consulte')}</h2>
-                        <p><b>Loja:</b> {top.get('source', 'Não informada')}</p>
-                        <p style="font-size:14px;">{top.get('title', '')}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # CORREÇÃO AQUI: Só cria o botão se o link for válido
-                    if link_direto:
-                        st.link_button("🛒 ABRIR NA LOJA", link_direto)
-                    else:
-                        st.warning("⚠️ Link direto indisponível nesta oferta.")
-
-                st.write("---")
-                st.write("📊 **Outras Lojas:**")
-                
-                for item in resultados[1:6]:
-                    col1, col2 = st.columns([3, 1])
-                    l_extra = item.get('link', '')
-                    with col1:
-                        st.write(f"**{item.get('source', 'Loja')}**")
-                        st.caption(item.get('title', ''))
-                    with col2:
-                        st.write(f"**{item.get('price', '')}**")
-                    
-                    if l_extra:
-                        st.write(f"[Link da oferta]({l_extra})")
-                    st.divider()
-
-                # --- ÁREA DO SEU LUCRO ---
-                st.warning("🔔 **MONITORAMENTO AUTOMÁTICO**")
-                st.write("Quer que eu te avise no WhatsApp se esse preço cair?")
-                with st.expander("ATIVAR ALERTA (R$ 10,00)"):
-                    st.write("1. Envie o PIX para sua chave.")
-                    zap = st.text_input("Seu WhatsApp:")
-                    if st.button("ATIVAR VIGILÂNCIA"):
-                        if zap:
-                            st.success("Tudo certo! Robô ativado para este produto.")
-                            st.balloons()
-                        else:
-                            st.error("Digite o seu WhatsApp.")
-            else:
-                st.error("Nenhum produto encontrado. Tente ser mais específico.")
+if botao_gerar:
+    if not api_key or not tema or not imagem_carregada:
+        st.error("❌ Por favor, preencha a Gemini API Key, o Tema e envie a Imagem!")
+    elif "Música" in tipo_audio and not musica_carregada:
+        st.error("❌ Você selecionou uma opção com música, mas não enviou o arquivo .mp3!")
     else:
-        st.warning("Digite algo para buscar.")
-
-st.caption("Arquiteto de Dados Renato - 2026")
+        with st.spinner("🤖 Google Gemini pensando no roteiro perfeito..."):
+            try:
+                # Aqui usamos a chamada universal mais estável do Gemini
+                genai.configure(api_key=api_key)
+                
+                tamanho_max = "máximo 40 segundos de leitura" if "Voz" in tipo_audio else "máximo 140 caracteres"
+                prompt = f"Escreva um texto curto e altamente focado em conversão/vendas para o TikTok sobre o tema: {tema}. Tamanho ideal: {tamanho_max}. Retorne APENAS o texto puro que vai na tela, sem indicações de cena, sem aspas e sem parênteses."
+                
+                # Chamada via modelo generativo padrão compatível com qualquer versão da biblioteca
+                response = genai.GenerativeModel('gemini-pro').generate_content(prompt)
+                texto_do_video = response.text.strip()
+                st.info(f"📜 **Roteiro Gerado pelo Gemini:**\n\n_{texto_do_video}_")
+                
+                audio_final_path = "audio_gerado_final.mp3"
+                arquivos_para_limpar = []
+                
+                if tipo_audio == "Apenas Voz Narrada":
+                    with st.spinner("🎙️ Gerando narração grátis..."):
+                        async def gerar_voz():
+                            communicate = edge_tts.Communicate(texto_do_video, cod_voz)
+                            await communicate.save(audio_final_path)
+                        asyncio.run(gerar_voz())
+                        arquivos_para_limpar.append(audio_final_path)
+                        duracao_video = AudioFileClip(audio_final_path).duration
+                
+                elif tipo_audio == "Apenas Música de Fundo":
+                    with st.spinner("🎵 Processando música..."):
+                        with open("musica_temp.mp3", "wb") as f:
+                            f.write(musica_carregada.getbuffer())
+                        arquivos_para_limpar.append("musica_temp.mp3")
+                        audio_final_path = "musica_temp.mp3"
+                        duracao_video = min(AudioFileClip(audio_final_path).duration, 15)
+                
+                elif tipo_audio == "Voz Narrada + Música de Fundo":
+                    with st.spinner("🎛️ Combinando Voz + Música..."):
+                        async def gerar_voz_dupla():
+                            communicate = edge_tts.Communicate(texto_do_video, cod_voz)
+                            await communicate.save("voz_temp.mp3")
+                        asyncio.run(gerar_voz_dupla())
+                        arquivos_para_limpar.append("voz_temp.mp3")
+                        
+                        with open("musica_temp.mp3", "wb") as f:
+                            f.write(musica_carregada.getbuffer())
+                        arquivos_para_limpar.append("musica_temp.mp3")
+                        
+                        v_clip = AudioFileClip("voz_temp.mp3")
+                        m_clip = AudioFileClip("musica_temp.mp3").subclip(0, v_clip.duration).volumex(0.12)
+                        
+                        mixed_audio = CompositeAudioClip([v_clip, m_clip])
+                        mixed_audio.write_audiofile("mix_final.mp3", logger=None)
+                        arquivos_para_limpar.append("mix_final.mp3")
+                        
+                        audio_final_path = "mix_final.mp3"
+                        duracao_video = v_clip.duration
+                
+                with st.spinner("🎨 Aplicando design nas legendas..."):
+                    imagem_fundo = Image.open(imagem_carregada)
+                    imagem_fundo = imagem_fundo.resize((1080, 1920))
+                    canvas = ImageDraw.Draw(imagem_fundo)
+                    
+                    font = ImageFont.load_default()
+                        
+                    palavras = texto_do_video.split()
+                    linhas = []
+                    linha_atual = ""
+                    for palavra in palavras:
+                        if len(linha_atual + " " + palavra) < 25:
+                            linha_atual = f"{linha_atual} {palavra}".strip()
+                        else:
+                            linhas.append(linha_atual)
+                            linha_atual = palavra
+                    if linha_atual: linhas.append(linha_atual)
+                    
+                    y_text = (1920 - (len(linhas) * 85)) // 2
+                    for linha in list(dict.fromkeys(linhas)):
+                        if linha:
+                            canvas.text((100, y_text), linha, font=font, fill="white", stroke_width=2, stroke_fill="black")
+                            y_text += 85
+                        
+                    imagem_fundo.save("fundo_final.png")
+                    arquivos_para_limpar.append("fundo_final.png")
+                
+                with st.spinner("🎬 Criando MP4 final..."):
+                    with AudioFileClip(audio_final_path) as audio_clip:
+                        if tipo_audio == "Apenas Música de Fundo":
+                            audio_clip = audio_clip.subclip(0, duracao_video)
+                            
+                        with ImageClip("fundo_final.png").set_duration(duracao_video) as video_img:
+                            video_final = video_img.set_audio(audio_clip)
+                            video_final.write_videofile(
+                                "video_final_tiktok.mp4", fps=24, codec="libx264", 
+                                audio_codec="aac", ffmpeg_params=["-pix_fmt", "yuv420p"], logger=None
+                            )
+                
+                st.success("🎉 VÍDEO PRONTO E GERADO DE GRAÇA!")
+                
+                with open("video_final_tiktok.mp4", "rb") as file:
+                    st.download_button(
+                        label="📥 BAIXAR MEU VÍDEO",
+                        data=file,
+                        file_name="video_gratis.mp4",
+                        mime="video/mp4"
+                    )
+                
+                arquivos_para_limpar.append("video_final_tiktok.mp4")
+                for arquivo in arquivos_para_limpar:
+                    if os.path.exists(arquivo):
+                        os.remove(arquivo)
+                        
+            except Exception as e:
+                st.error(f"Erro no sistema: {e}")
