@@ -2,48 +2,217 @@ import streamlit as st
 import os
 import requests
 from gtts import gTTS
-from PIL import Image, ImageDraw
-from moviepy.editor import AudioFileClip, ImageClip, CompositeVideoClip, CompositeAudioClip
+from PIL import Image, ImageDraw, ImageFont
+from moviepy.editor import AudioFileClip, ImageClip, CompositeAudioClip
 
-st.set_page_config(page_title="Gerador TikTok", layout="centered")
-st.title("🎬 Fábrica de Vídeos v2.0 (Estável)")
+st.set_page_config(page_title="Super Gerador TikTok Grátis", page_icon="🎬", layout="centered")
 
-api_key = st.secrets["GEMINI_API_KEY"]
+st.title("🎬 Fábrica de Vídeos Rápida (Imagem + Tema)")
+st.markdown("Insira o tema, defina o objetivo, suba sua foto de fundo e crie o vídeo perfeito com a IA.")
 
-with st.form(key="form"):
-    tema = st.text_input("Tema do vídeo")
-    imagem_carregada = st.file_uploader("Suba a imagem", type=["png", "jpg"])
-    botao_gerar = st.form_submit_button("🚀 GERAR VÍDEO")
+# Garante que a API Key existe nos Secrets do Streamlit
+try:
+    api_key = st.secrets["GEMINI_API_KEY"]
+except Exception:
+    st.error("❌ Chave API não encontrada nos Secrets do Streamlit! Verifique se configurou 'GEMINI_API_KEY' corretamente.")
+    st.stop()
 
-if botao_gerar and tema and imagem_carregada:
-    try:
-        # 1. Roteiro (Com tratamento de erro de quota)
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
-        payload = {"contents": [{"parts": [{"text": f"Escreva um roteiro narrativo de 1 minuto sobre: {tema}. Sem asteriscos."}]}]}
-        response = requests.post(url, json=payload).json()
-        texto = response['candidates'][0]['content']['parts'][0]['text']
-        st.info(texto)
+with st.form(key="gerador_video"):
+    tema = st.text_input("Qual o tema do vídeo?", placeholder="Ex: Por que os grandes players usam paridade cambial")
+    
+    # 🎯 NOVO CAMPO: OBJETIVO DO VÍDEO
+    objetivo_video = st.selectbox(
+        "Qual o Objetivo/Estilo do Vídeo?",
+        (
+            "Dica / Educacional (Focado em ensinar e agregar valor)", 
+            "Conselho / Motivacional (Focado em reflexão e engajamento)", 
+            "Curiosidade (Focado em prender a atenção com fatos)", 
+            "Venda / Conversão (Focado em direcionar para o link na bio)"
+        )
+    )
+    
+    imagem_carregada = st.file_uploader("Suba sua imagem de fundo (.png ou .jpg)", type=["png", "jpg"])
+    
+    st.markdown("---")
+    st.subheader("🎵 Configurações de Áudio")
+    
+    tipo_audio = st.radio(
+        "Como quer o áudio do vídeo?",
+        ("Apenas Voz Narrada", "Apenas Música de Fundo", "Voz Narrada + Música de Fundo")
+    )
+    
+    voz_escolhida = st.selectbox(
+        "Escolha o Sotaque da Voz:",
+        ("Português (Brasil)", "Português (Portugal)")
+    )
+    lang_code = "pt"
+    tld_code = "com.br" if "Brasil" in voz_escolhida else "pt"
+    
+    musica_carregada = st.file_uploader("Suba a música de fundo (.mp3) - Opcional se for Apenas Voz", type=["mp3"])
+    
+    st.markdown("---")
+    botao_gerar = st.form_submit_button(label="🚀 GERAR MEU VÍDEO RÁPIDO")
 
-        # 2. Áudio
-        tts = gTTS(text=texto, lang='pt', tld='com.br')
-        tts.save("audio.mp3")
-        duracao = AudioFileClip("audio.mp3").duration
+if botao_gerar:
+    if not tema or not imagem_carregada:
+        st.error("❌ Por favor, preencha o Tema e envie a Imagem!")
+    elif "Música" in tipo_audio and not musica_carregada:
+        st.error("❌ Você selecionou uma opção com música, mas não enviou o arquivo .mp3!")
+    else:
+        with st.spinner("🤖 Google Gemini pensando no roteiro perfeito..."):
+            try:
+                # Chamada direta para o Gemini 2.5 Flash via API estável
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+                headers = {'Content-Type': 'application/json'}
+                
+                # Engenharia de prompt dinâmica baseada no objetivo escolhido pelo usuário
+                if "Dica" in objetivo_video:
+                    instrucao_estilo = "O estilo deve ser puramente EDUCACIONAL e instrutivo, focado em dar dicas práticas passo a passo. NÃO tente vender nada, NÃO fale sobre comprar, NÃO fale sobre produtos e NÃO mencione 'link na bio'."
+                elif "Conselho" in objetivo_video:
+                    instrucao_estilo = "O estilo deve ser de CONSELHO ou MOTIVACIONAL, com um tom reflexivo, profundo e inspirador. Focado em gerar identificação com quem está assistindo. NÃO mencione vendas ou links."
+                elif "Curiosidade" in objetivo_video:
+                    instrucao_estilo = "O estilo deve ser focado em CURIOSIDADE. Comece com um gancho forte (ex: 'Você sabia que...' ou 'Existe um fato estranho...'). Deve ser dinâmico e intrigante. NÃO mencione vendas."
+                else:
+                    instrucao_estilo = "O estilo deve ser focado em VENDA e CONVERSÃO direta. Faça um gancho forte, apresente o problema e chame o usuário para clicar no link da bio para resolver ou comprar."
 
-        # 3. Imagem (Corrigida: usando 'Resampling.LANCZOS' em vez de 'ANTIALIAS')
-        img = Image.open(imagem_carregada).convert("RGBA")
-        img = img.resize((1080, 1080), Image.Resampling.LANCZOS)
-        img.save("fundo.png")
+                tamanho_max = "máximo 35 segundos de leitura" if "Voz" in tipo_audio else "máximo 140 caracteres"
+                
+                prompt = f"Escreva um texto curto e dinâmico para o TikTok sobre o tema: '{tema}'. {instrucao_estilo} Tamanho: {tamanho_max}. Retorne APENAS o texto puro do roteiro corrida, sem indicações de cena, sem aspas, sem asteriscos e sem parênteses."
+                
+                payload = {"contents": [{"parts": [{"text": prompt}]}]}
+                response = requests.post(url, headers=headers, json=payload)
+                response_json = response.json()
+                
+                if response.status_code != 200:
+                    st.error(f"Erro na API do Google: {response_json.get('error', {}).get('message', 'Erro desconhecido')}")
+                    st.stop()
+                
+                texto_do_video = response_json['candidates'][0]['content']['parts'][0]['text'].strip()
+                texto_do_video = texto_do_video.replace("**", "").replace("*", "").replace('"', '')
+                st.info(f"📜 **Roteiro Gerado pelo Gemini:**\n\n_{texto_do_video}_")
+                
+                audio_final_path = "audio_gerado_final.mp3"
+                arquivos_para_limpar = []
 
-        # 4. Vídeo Simples (Evitando erros de TextClip complexo)
-        # Criamos o vídeo usando apenas o fundo e o áudio
-        video = ImageClip("fundo.png").set_duration(duracao)
-        video = video.set_audio(AudioFileClip("audio.mp3"))
-        
-        video.write_videofile("final.mp4", fps=24, codec="libx264", audio_codec="aac")
+                # ---- MOTOR DE ÁUDIO ESTÁVEL (gTTS) ----
+                def criar_audio_gtts(texto, caminho_saida, lang, tld):
+                    try:
+                        tts = gTTS(text=texto, lang=lang, tld=tld, slow=False)
+                        tts.save(caminho_saida)
+                        return True
+                    except Exception as e:
+                        st.error(f"Erro ao gerar áudio: {e}")
+                        return False
 
-        st.success("Vídeo gerado!")
-        with open("final.mp4", "rb") as f:
-            st.download_button("📥 BAIXAR", f, "video.mp4")
-            
-    except Exception as e:
-        st.error(f"Erro: {e}. Se for 'Quota Exceeded', aguarde 60 segundos antes de tentar de novo.")
+                # ---- CRIAÇÃO DO ÁUDIO ----
+                if tipo_audio == "Apenas Voz Narrada":
+                    with st.spinner("🎙️ Gerando narração..."):
+                        if criar_audio_gtts(texto_do_video, audio_final_path, lang_code, tld_code):
+                            arquivos_para_limpar.append(audio_final_path)
+                            duracao_video = AudioFileClip(audio_final_path).duration
+                        else:
+                            st.stop()
+                
+                elif tipo_audio == "Apenas Música de Fundo":
+                    with st.spinner("🎵 Processando música..."):
+                        with open("musica_temp.mp3", "wb") as f:
+                            f.write(musica_carregada.getbuffer())
+                        arquivos_para_limpar.append("musica_temp.mp3")
+                        audio_final_path = "musica_temp.mp3"
+                        duracao_video = min(AudioFileClip(audio_final_path).duration, 15)
+                
+                elif tipo_audio == "Voz Narrada + Música de Fundo":
+                    with st.spinner("🎛️ Combinando Voz + Música..."):
+                        if criar_audio_gtts(texto_do_video, "voz_temp.mp3", lang_code, tld_code):
+                            arquivos_para_limpar.append("voz_temp.mp3")
+                            
+                            with open("musica_temp.mp3", "wb") as f:
+                                f.write(musica_carregada.getbuffer())
+                            arquivos_para_limpar.append("musica_temp.mp3")
+                            
+                            v_clip = AudioFileClip("voz_temp.mp3")
+                            m_clip = AudioFileClip("musica_temp.mp3").subclip(0, v_clip.duration).volumex(0.15)
+                            
+                            mixed_audio = CompositeAudioClip([v_clip, m_clip])
+                            mixed_audio.write_audiofile("mix_final.mp3", logger=None)
+                            arquivos_para_limpar.append("mix_final.mp3")
+                            
+                            audio_final_path = "mix_final.mp3"
+                            duracao_video = v_clip.duration
+                        else:
+                            st.stop()
+                
+                # ---- PROCESSANDO A IMAGEM E LEGENDA ----
+                with st.spinner("🎨 Aplicando Super Legendas Estilo TikTok..."):
+                    imagem_fundo = Image.open(imagem_carregada)
+                    imagem_fundo = imagem_fundo.resize((1080, 1920))
+                    canvas = ImageDraw.Draw(imagem_fundo)
+                    
+                    try:
+                        font = ImageFont.truetype("LiberationSans-Bold.ttf", 55)
+                    except IOError:
+                        try:
+                            font = ImageFont.truetype("Arial.ttf", 55)
+                        except IOError:
+                            font = ImageFont.load_default()
+                        
+                    palavras = texto_do_video.split()
+                    linhas = []
+                    linha_atual = ""
+                    
+                    for palabra in palavras:
+                        test_linha = f"{linha_atual} {palabra}".strip()
+                        if len(test_linha) < 24:
+                            linha_atual = test_linha
+                        else:
+                            linhas.append(linha_atual)
+                            linha_atual = palabra
+                    if linha_atual: 
+                        linhas.append(linha_atual)
+                    
+                    y_text = (1920 - (len(linhas) * 100)) // 2
+                    for linha in linhas:
+                        if linha:
+                            x_text = (1080 - (len(linha) * 28)) // 2
+                            if x_text < 50: x_text = 50
+                            
+                            for adj_x in [-3, 0, 3]:
+                                for adj_y in [-3, 0, 3]:
+                                    canvas.text((x_text + adj_x, y_text + adj_y), linha, font=font, fill="black")
+                            
+                            canvas.text((x_text, y_text), linha, font=font, fill="white")
+                            y_text += 100
+                        
+                    imagem_fundo.save("fundo_final.png")
+                    arquivos_para_limpar.append("fundo_final.png")
+                
+                # ---- RENDERIZANDO O VÍDEO FINAL ----
+                with st.spinner("🎬 Juntando tudo no MP4 final..."):
+                    with AudioFileClip(audio_final_path) as audio_clip:
+                        if tipo_audio == "Apenas Música de Fundo":
+                            audio_clip = audio_clip.subclip(0, duracao_video)
+                            
+                        with ImageClip("fundo_final.png").set_duration(duracao_video) as video_img:
+                            video_final = video_img.set_audio(audio_clip)
+                            video_final.write_videofile(
+                                "video_final_tiktok.mp4", fps=24, codec="libx264", 
+                                audio_codec="aac", ffmpeg_params=["-pix_fmt", "yuv420p"], logger=None
+                            )
+                
+                st.success("🎉 VÍDEO COMPLETADO COM SUCESSO!")
+                
+                with open("video_final_tiktok.mp4", "rb") as file:
+                    st.download_button(
+                        label="📥 BAIXAR MEU VÍDEO",
+                        data=file,
+                        file_name="video_gratis.mp4",
+                        mime="video/mp4"
+                    )
+                
+                arquivos_para_limpar.append("video_final_tiktok.mp4")
+                for arquivo in arquivos_para_limpar:
+                    if os.path.exists(arquivo):
+                        os.remove(arquivo)
+                        
+            except Exception as e:
+                st.error(f"Erro inesperado no sistema: {e}")
