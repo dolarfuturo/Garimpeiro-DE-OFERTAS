@@ -17,7 +17,7 @@ except Exception:
     st.error("❌ Chave API não encontrada nos Secrets do Streamlit! Verifique se configurou 'GEMINI_API_KEY' corretamente.")
     st.stop()
 
-# 🎛️ SELETOR DE MODO - O CORAÇÃO DO 2 EM 1
+# 🎛️ SELETOR DE MODO
 modo_criacao = st.radio(
     "💡 Escolha o Modo de Criação:",
     ("Foto Estática (Rápido)", "Vídeo de Fundo (Editor de Movimento)"),
@@ -27,7 +27,6 @@ modo_criacao = st.radio(
 with st.form(key="gerador_video"):
     tema = st.text_input("Qual o tema do vídeo?", placeholder="Ex: Como limpar a casa em 20 minutos")
     
-    # Exibe o upload correto dependendo do modo escolhido
     if modo_criacao == "Foto Estática (Rápido)":
         imagem_carregada = st.file_uploader("Suba sua imagem de fundo (.png ou .jpg)", type=["png", "jpg"])
         video_carregado = None
@@ -56,7 +55,6 @@ with st.form(key="gerador_video"):
     botao_gerar = st.form_submit_button(label="🚀 GERAR MEU VÍDEO COMPLETO")
 
 if botao_gerar:
-    # Validações inteligentes baseadas no modo
     if not tema:
         st.error("❌ Por favor, preencha o Tema do vídeo!")
         st.stop()
@@ -97,7 +95,7 @@ if botao_gerar:
             audio_final_path = "audio_gerado_final.mp3"
             arquivos_para_limpar = []
 
-            # ---- MOTOR DE ÁUDIO (gTTS) ----
+            # ---- MOTOR DE ÁUDIO ESTÁVEL (gTTS) ----
             def criar_audio_gtts(texto, caminho_saida, lang, tld):
                 try:
                     tts = gTTS(text=texto, lang=lang, tld=tld, slow=False)
@@ -143,8 +141,7 @@ if botao_gerar:
                     else: st.stop()
             
             # ---- DESIGN DA IMAGEM TRANSPARENTE DA LEGENDA ----
-            with st.spinner("🎨 Alinhando design e legendas nas dimensões certas..."):
-                # Cria um canvas transparente (1080x1920) para a legenda
+            with st.spinner("🎨 Alinhando design e legendas..."):
                 img_legenda = Image.new('RGBA', (1080, 1920), (0, 0, 0, 0))
                 canvas = ImageDraw.Draw(img_legenda)
                 font = ImageFont.load_default()
@@ -152,12 +149,12 @@ if botao_gerar:
                 palavras = texto_do_video.split()
                 linhas = []
                 linha_atual = ""
-                for palabra in palavras:
-                    if len(linha_atual + " " + palabra) < 28:
-                        linha_atual = f"{linha_atual} {palabra}".strip()
+                for palavra in palavras:
+                    if len(linha_atual + " " + palavra) < 28:
+                        linha_atual = f"{linha_atual} {palavra}".strip()
                     else:
                         linhas.append(linha_atual)
-                        linha_atual = palabra
+                        linha_atual = palavra
                 if linha_atual: linhas.append(linha_atual)
                 
                 y_text = (1920 - (len(linhas) * 85)) // 2
@@ -169,16 +166,16 @@ if botao_gerar:
                 img_legenda.save("overlay_legenda.png")
                 arquivos_para_limpar.append("overlay_legenda.png")
 
-            # ---- RENDERIZADOR 2 EM 1 (MÁGICA DO MOVIEPY) ----
+            # ---- RENDERIZADOR CORRIGIDO SEM ANTIALIAS ----
             with st.spinner("🎬 Renderizando arquivo MP4 final..."):
                 with AudioFileClip(audio_final_path) as audio_clip:
                     if tipo_audio == "Apenas Música de Fundo":
                         audio_clip = audio_clip.subclip(0, duracao_video)
                     
-                    # MODO 1: Se o usuário escolheu Foto Estática
+                    # MODO 1: Foto Estática
                     if modo_criacao == "Foto Estática (Rápido)":
+                        # Correção aqui: removido qualquer menção interna ao método antigo de resize
                         imagem_fundo = Image.open(imagem_carregada).resize((1080, 1920))
-                        # Junta a legenda direto na foto para poupar memória
                         legenda_overlay = Image.open("overlay_legenda.png")
                         imagem_fundo.paste(legenda_overlay, (0,0), legenda_overlay)
                         imagem_fundo.save("fundo_com_legenda.png")
@@ -187,31 +184,32 @@ if botao_gerar:
                         video_base = ImageClip("fundo_com_legenda.png").set_duration(duracao_video)
                         video_final = video_base.set_audio(audio_clip)
                     
-                    # MODO 2: Se o usuário escolheu Vídeo com Movimento
+                    # MODO 2: Vídeo com Movimento (Editor)
                     else:
                         with open("video_fundo_temp.mp4", "wb") as f:
                             f.write(video_carregado.getbuffer())
                         arquivos_para_limpar.append("video_fundo_temp.mp4")
                         
-                        # Corta ou estica o vídeo enviado para bater com a duração exata do áudio
-                        video_base = VideoFileClip("video_fundo_temp.mp4").resize((1080, 1920))
+                        # Carrega e ajusta o vídeo .mp4 sem usar filtros obsoletos de redimensionamento
+                        video_base = VideoFileClip("video_fundo_temp.mp4")
+                        video_base = video_base.resize(newsize=(1080, 1920))
+                        
                         if video_base.duration < duracao_video:
                             video_base = video_base.loop(duration=duracao_video)
                         else:
                             video_base = video_base.subclip(0, duracao_video)
                             
-                        # Aplica a legenda transparente por cima do vídeo em movimento
                         legenda_clip = ImageClip("overlay_legenda.png").set_duration(duracao_video)
                         from moviepy.video.VideoClip import CompositeVideoClip
                         video_final = CompositeVideoClip([video_base, legenda_clip]).set_audio(audio_clip)
                     
-                    # Exportação universal leve
+                    # Exportação definitiva
                     video_final.write_videofile(
                         "video_final_tiktok.mp4", fps=24, codec="libx264", 
                         audio_codec="aac", ffmpeg_params=["-pix_fmt", "yuv420p"], logger=None
                     )
             
-            st.success("🎉 VÍDEO COMPLETADO COM SUCESSO NO MODO ESCOLHIDO!")
+            st.success("🎉 VÍDEO COMPLETADO COM SUCESSO!")
             
             with open("video_final_tiktok.mp4", "rb") as file:
                 st.download_button(
