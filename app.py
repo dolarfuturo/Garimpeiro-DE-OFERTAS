@@ -7,8 +7,8 @@ from moviepy.editor import AudioFileClip, ImageClip, CompositeAudioClip
 
 st.set_page_config(page_title="Super Gerador TikTok Grátis", page_icon="🎬", layout="centered")
 
-st.title("🎬 Fábrica de Vídeos (100% Gratuita)")
-st.markdown("Configure o estilo do seu vídeo abaixo e deixe a IA trabalhar.")
+st.title("🎬 Fábrica de Vídeos Rápida (Imagem + Tema)")
+st.markdown("Insira o tema, suba sua foto de fundo e crie um vídeo narrado pela IA em segundos.")
 
 # Garante que a API Key existe nos Secrets do Streamlit
 try:
@@ -30,7 +30,7 @@ with st.form(key="gerador_video"):
     )
     
     voz_escolhida = st.selectbox(
-        "Escolha o Idioma/Sotaque da Voz:",
+        "Escolha o Sotaque da Voz:",
         ("Português (Brasil)", "Português (Portugal)")
     )
     lang_code = "pt"
@@ -39,7 +39,7 @@ with st.form(key="gerador_video"):
     musica_carregada = st.file_uploader("Suba a música de fundo (.mp3) - Opcional se for Apenas Voz", type=["mp3"])
     
     st.markdown("---")
-    botao_gerar = st.form_submit_button(label="🚀 GERAR MEU VÍDEO GRATUITO")
+    botao_gerar = st.form_submit_button(label="🚀 GERAR MEU VÍDEO RÁPIDO")
 
 if botao_gerar:
     if not tema or not imagem_carregada:
@@ -49,7 +49,7 @@ if botao_gerar:
     else:
         with st.spinner("🤖 Google Gemini pensando no roteiro perfeito..."):
             try:
-                # Chamada direta para o Gemini 2.5 Flash
+                # Chamada direta para o Gemini 2.5 Flash via API estável
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
                 headers = {'Content-Type': 'application/json'}
                 
@@ -71,7 +71,7 @@ if botao_gerar:
                 audio_final_path = "audio_gerado_final.mp3"
                 arquivos_para_limpar = []
 
-                # ---- NOVO MOTOR DE ÁUDIO ULTRA ESTÁVEL (gTTS) ----
+                # ---- MOTOR DE ÁUDIO ESTÁVEL (gTTS) ----
                 def criar_audio_gtts(texto, caminho_saida, lang, tld):
                     try:
                         tts = gTTS(text=texto, lang=lang, tld=tld, slow=False)
@@ -83,7 +83,7 @@ if botao_gerar:
 
                 # ---- CRIAÇÃO DO ÁUDIO ----
                 if tipo_audio == "Apenas Voz Narrada":
-                    with st.spinner("🎙️ Gerando narração 100% estável..."):
+                    with st.spinner("🎙️ Gerando narração..."):
                         if criar_audio_gtts(texto_do_video, audio_final_path, lang_code, tld_code):
                             arquivos_para_limpar.append(audio_final_path)
                             duracao_video = AudioFileClip(audio_final_path).duration
@@ -119,7 +119,7 @@ if botao_gerar:
                         else:
                             st.stop()
                 
-                # ---- PROCESSANDO A IMAGEM E LEGENDA ----
+                # ---- PROCESSANDO A IMAGEM E LEGENDA (Sem métodos antigos/obsoletos) ----
                 with st.spinner("🎨 Alinhando design e legendas..."):
                     imagem_fundo = Image.open(imagem_carregada)
                     imagem_fundo = imagem_fundo.resize((1080, 1920))
