@@ -1,6 +1,5 @@
 streamlit
-pandas
-gspread
-gspread-pandas
-requests
-beautifulsoup4
+google-generativeai
+edge-tts
+Pillow
+moviepy
