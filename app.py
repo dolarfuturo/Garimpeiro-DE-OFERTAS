@@ -43,14 +43,15 @@ if botao_gerar:
     else:
         with st.spinner("🤖 Google Gemini pensando no roteiro perfeito..."):
             try:
-                # Aqui usamos a chamada universal mais estável do Gemini
+                # Configuração atualizada da API do Google
                 genai.configure(api_key=api_key)
                 
                 tamanho_max = "máximo 40 segundos de leitura" if "Voz" in tipo_audio else "máximo 140 caracteres"
                 prompt = f"Escreva um texto curto e altamente focado em conversão/vendas para o TikTok sobre o tema: {tema}. Tamanho ideal: {tamanho_max}. Retorne APENAS o texto puro que vai na tela, sem indicações de cena, sem aspas e sem parênteses."
                 
-                # Chamada via modelo generativo padrão compatível com qualquer versão da biblioteca
-                response = genai.GenerativeModel('gemini-pro').generate_content(prompt)
+                # Mudança crucial: Chamando o modelo moderno correto aceito pela biblioteca nova
+                model = genai.GenerativeModel(model_name='gemini-1.5-flash')
+                response = model.generate_content(prompt)
                 texto_do_video = response.text.strip()
                 st.info(f"📜 **Roteiro Gerado pelo Gemini:**\n\n_{texto_do_video}_")
                 
