@@ -3,6 +3,7 @@ import os
 import requests
 import asyncio
 import edge_tts
+import re
 from PIL import Image, ImageDraw, ImageFont
 from moviepy.editor import AudioFileClip, ImageClip, CompositeAudioClip
 
@@ -19,7 +20,6 @@ except Exception:
     st.stop()
 
 with st.form(key="gerador_video"):
-    # A CAIXA DA CHAVE API FOI REMOVIDA DA TELA!
     tema = st.text_input("Qual o tema do vídeo?", placeholder="Ex: Por que os grandes players usam paridade cambial")
     imagem_carregada = st.file_uploader("Suba sua imagem de fundo (.png ou .jpg)", type=["png", "jpg"])
     
@@ -50,12 +50,12 @@ if botao_gerar:
     else:
         with st.spinner("🤖 Google Gemini pensando no roteiro perfeito..."):
             try:
-                # Requisição direta para o endpoint estável atual do Gemini 2.5 Flash
+                # Requisição para o Gemini 2.5 Flash
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
                 headers = {'Content-Type': 'application/json'}
                 
                 tamanho_max = "máximo 40 segundos de leitura" if "Voz" in tipo_audio else "máximo 140 caracteres"
-                prompt = f"Escreva um texto curto e altamente focado em conversão/vendas para o TikTok sobre o tema: {tema}. Tamanho ideal: {tamanho_max}. Retorne APENAS o texto puro que vai na tela, sem indicações de cena, sem aspas e sem parênteses."
+                prompt = f"Escreva um texto curto e altamente focado em conversão/vendas para o TikTok sobre o tema: {tema}. Tamanho ideal: {tamanho_max}. Retorne APENAS o texto puro que vai na tela, sem indicações de cena, sem aspas, sem asteriscos e sem parênteses."
                 
                 payload = {
                     "contents": [{
@@ -71,7 +71,12 @@ if botao_gerar:
                     st.stop()
                 
                 texto_do_video = response_json['candidates'][0]['content']['parts'][0]['text'].strip()
+                # Remove marcações de markdown antigas que o Gemini costuma colocar
+                texto_do_video = texto_do_video.replace("**", "").replace("*", "")
                 st.info(f"📜 **Roteiro Gerado pelo Gemini:**\n\n_{texto_do_video}_")
+                
+                # Limpeza profunda do texto para o narrador não travar com caracteres especiais
+                texto_para_narrar = re.sub(r'[^a-zA-Z0-9áéíóúâêôãõçÁÉÍÓÚÂÊÔÃÕÇ ,.\n]', '', texto_do_video)
                 
                 audio_final_path = "audio_gerado_final.mp3"
                 arquivos_para_limpar = []
@@ -80,7 +85,7 @@ if botao_gerar:
                 if tipo_audio == "Apenas Voz Narrada":
                     with st.spinner("🎙️ Gerando narração grátis..."):
                         async def gerar_voz():
-                            communicate = edge_tts.Communicate(texto_do_video, cod_voz)
+                            communicate = edge_tts.Communicate(texto_para_narrar, cod_voz)
                             await communicate.save(audio_final_path)
                         asyncio.run(gerar_voz())
                         arquivos_para_limpar.append(audio_final_path)
@@ -97,7 +102,7 @@ if botao_gerar:
                 elif tipo_audio == "Voz Narrada + Música de Fundo":
                     with st.spinner("🎛️ Combinando Voz + Música..."):
                         async def gerar_voz_dupla():
-                            communicate = edge_tts.Communicate(texto_do_video, cod_voz)
+                            communicate = edge_tts.Communicate(texto_para_narrar, cod_voz)
                             await communicate.save("voz_temp.mp3")
                         asyncio.run(gerar_voz_dupla())
                         arquivos_para_limpar.append("voz_temp.mp3")
