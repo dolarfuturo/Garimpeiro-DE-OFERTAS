@@ -22,6 +22,14 @@ with st.form(key="gerador_video"):
     imagem_carregada = st.file_uploader("Suba sua imagem de fundo (.png ou .jpg)", type=["png", "jpg"])
     
     st.markdown("---")
+    st.subheader("🎨 Configurações de Estilo da Legenda")
+    
+    cor_legenda = st.selectbox(
+        "Cor da Legenda:",
+        ["Branco", "Amarelo", "Verde Neon", "Ciano"]
+    )
+    
+    st.markdown("---")
     st.subheader("🎵 Configurações de Áudio e Voz")
     
     tipo_audio = st.radio(
@@ -58,18 +66,18 @@ if botao_gerar:
     elif "Música" in tipo_audio and not musica_carregada:
         st.error("❌ Você selecionou uma opção com música, mas não enviou o arquivo .mp3!")
     else:
-        with st.spinner("🤖 Google Gemini criando um roteiro polêmico e viral..."):
+        with st.spinner("🤖 Google Gemini criando um roteiro polêmico e garantindo mais de 1 minuto..."):
             try:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
                 headers = {'Content-Type': 'application/json'}
                 
-                # --- AJUSTE: SEM MENDIGAR COMENTÁRIO, APENAS SOLTANDO A BOMBA ---
-                tamanho_max = "EXATAMENTE entre 150 e 170 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
+                # --- AJUSTE: AUMENTAMOS PARA 170-190 PALAVRAS PARA GARANTIR > 1 MINUTO ---
+                tamanho_max = "EXATAMENTE entre 170 e 190 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
                 
                 prompt = f"""Escreva um roteiro para TikTok/Shorts sobre o tema: '{tema}'.
                 O tom deve ser EXALTADO, PROVOCATIVO e um pouco POLÊMICO para prender a atenção e gerar debate na audiência.
                 REGRA OBRIGATÓRIA 1: O roteiro DEVE terminar com uma afirmação forte, absoluta e controversa (uma "verdade nua e crua") que deixe a audiência revoltada ou com muita vontade de debater. NÃO peça para curtir, compartilhar ou comentar. Apenas jogue a bomba e termine o vídeo abruptamente.
-                REGRA OBRIGATÓRIA 2: O texto total deve ter {tamanho_max}. Isso garante que o vídeo tenha pouco mais de 1 minuto para monetização.
+                REGRA OBRIGATÓRIA 2: O texto total deve ter {tamanho_max}. Isso garante obrigatoriamente que o vídeo ultrapasse 1 minuto para fins de monetização.
                 Retorne APENAS o texto puro, sem indicações de cena, sem aspas, sem asteriscos, sem hashtags e sem parênteses."""
                 
                 payload = {"contents": [{"parts": [{"text": prompt}]}]}
@@ -126,11 +134,19 @@ if botao_gerar:
                 with st.spinner("🎨 Criando legendas sincronizadas..."):
                     imagem_fundo_base = Image.open(imagem_carregada).resize((1080, 1920))
                     
+                    mapa_cores = {
+                        "Branco": "white",
+                        "Amarelo": "#FFD700",
+                        "Verde Neon": "#00FF66",
+                        "Ciano": "#00FFFF"
+                    }
+                    cor_texto = mapa_cores[cor_legenda]
+
                     try:
-                        font = ImageFont.truetype("fonte.ttf", 90)
+                        font = ImageFont.truetype("fonte.ttf", 85)
                     except:
                         try:
-                            font = ImageFont.truetype("DejaVuSans-Bold.ttf", 90) 
+                            font = ImageFont.truetype("DejaVuSans-Bold.ttf", 85)
                         except:
                             font = ImageFont.load_default()
 
@@ -154,13 +170,13 @@ if botao_gerar:
                                 bbox = canvas.textbbox((0, 0), frase, font=font)
                                 largura_texto = bbox[2] - bbox[0]
                             except:
-                                largura_texto = len(frase) * 20 
+                                largura_texto = len(frase) * 35 
                                 
                             pos_x = (1080 - largura_texto) // 2
-                            pos_y = 1650 
+                            pos_y = 1550 
                             
-                            canvas.text((pos_x+4, pos_y+4), frase, font=font, fill="black")
-                            canvas.text((pos_x, pos_y), frase, font=font, fill="white")
+                            canvas.text((pos_x+5, pos_y+5), frase, font=font, fill="black")
+                            canvas.text((pos_x, pos_y), frase, font=font, fill=cor_texto)
                             
                             nome_frame = f"frame_temp_{i}.png"
                             img_frame.save(nome_frame)
@@ -174,7 +190,7 @@ if botao_gerar:
                     else:
                         video_final_sem_audio = ImageClip("fundo_final.png").set_duration(duracao_audio)
 
-                with st.spinner("🎬 Juntando tudo no MP4 final (isso vai levar um tempinho devido ao tamanho)..."):
+                with st.spinner("🎬 Juntando tudo no MP4 final..."):
                     audio_clip = AudioFileClip(audio_final_path)
                     
                     video_final = video_final_sem_audio.set_audio(audio_clip)
