@@ -44,20 +44,6 @@ with st.form(key="gerador_video"):
     st.markdown("---")
     botao_gerar = st.form_submit_button(label="🚀 GERAR MEU VÍDEO GRATUITO")
 
-# --- NOVA FUNÇÃO: BAIXA UMA FONTE GIGANTE AUTOMATICAMENTE ---
-def baixar_fonte_tiktok():
-    caminho_fonte = "fonte_tiktok.ttf"
-    if not os.path.exists(caminho_fonte):
-        try:
-            # Baixa a fonte Roboto Black (grossa e excelente para leitura)
-            url_fonte = "https://github.com/google/fonts/raw/main/apache/roboto/static/Roboto-Black.ttf"
-            resposta = requests.get(url_fonte)
-            with open(caminho_fonte, 'wb') as f:
-                f.write(resposta.content)
-        except:
-            pass
-    return caminho_fonte
-
 async def gerar_audio_neural(texto, caminho_saida, voz):
     try:
         communicate = edge_tts.Communicate(texto, voz)
@@ -77,6 +63,7 @@ if botao_gerar:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
                 headers = {'Content-Type': 'application/json'}
                 
+                # --- AJUSTE: SEM MENDIGAR COMENTÁRIO, APENAS SOLTANDO A BOMBA ---
                 tamanho_max = "EXATAMENTE entre 150 e 170 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
                 
                 prompt = f"""Escreva um roteiro para TikTok/Shorts sobre o tema: '{tema}'.
@@ -136,15 +123,16 @@ if botao_gerar:
                     audio_final_path = "musica_temp.mp3"
                     duracao_audio = min(AudioFileClip(audio_final_path).duration, 15)
 
-                with st.spinner("🎨 Criando legendas gigantes sincronizadas..."):
+                with st.spinner("🎨 Criando legendas sincronizadas..."):
                     imagem_fundo_base = Image.open(imagem_carregada).resize((1080, 1920))
                     
-                    # --- APLICANDO A FONTE GIGANTE AQUI ---
-                    caminho_fonte_baixada = baixar_fonte_tiktok()
                     try:
-                        font = ImageFont.truetype(caminho_fonte_baixada, 110) # Tamanho 110 agora!
+                        font = ImageFont.truetype("fonte.ttf", 90)
                     except:
-                        font = ImageFont.load_default()
+                        try:
+                            font = ImageFont.truetype("DejaVuSans-Bold.ttf", 90) 
+                        except:
+                            font = ImageFont.load_default()
 
                     clips_de_video = []
                     
@@ -166,14 +154,12 @@ if botao_gerar:
                                 bbox = canvas.textbbox((0, 0), frase, font=font)
                                 largura_texto = bbox[2] - bbox[0]
                             except:
-                                largura_texto = len(frase) * 45 # Estimativa ajustada para fonte grande
+                                largura_texto = len(frase) * 20 
                                 
                             pos_x = (1080 - largura_texto) // 2
-                            # Subi um pouquinho (de 1650 para 1550) para a letra grande não cortar embaixo
-                            pos_y = 1550 
+                            pos_y = 1650 
                             
-                            # Sombra mais grossa para destacar bem o texto branco
-                            canvas.text((pos_x+6, pos_y+6), frase, font=font, fill="black")
+                            canvas.text((pos_x+4, pos_y+4), frase, font=font, fill="black")
                             canvas.text((pos_x, pos_y), frase, font=font, fill="white")
                             
                             nome_frame = f"frame_temp_{i}.png"
