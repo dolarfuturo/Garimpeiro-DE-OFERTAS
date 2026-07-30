@@ -63,13 +63,13 @@ if botao_gerar:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
                 headers = {'Content-Type': 'application/json'}
                 
-                # --- AJUSTE: MUDANÇA DE TOM (POLÊMICO/EXALTADO) E CTA NO FINAL ---
+                # --- AJUSTE: SEM MENDIGAR COMENTÁRIO, APENAS SOLTANDO A BOMBA ---
                 tamanho_max = "EXATAMENTE entre 150 e 170 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
                 
                 prompt = f"""Escreva um roteiro para TikTok/Shorts sobre o tema: '{tema}'.
                 O tom deve ser EXALTADO, PROVOCATIVO e um pouco POLÊMICO para prender a atenção e gerar debate na audiência.
-                REGRA OBRIGATÓRIA 1: O roteiro DEVE terminar EXATAMENTE com a seguinte frase: 'E aí, você concorda ou não com isso? Deixe sua opinião nos comentários.'
-                REGRA OBRIGATÓRIA 2: O texto total deve ter {tamanho_max} (já contando com a frase final). Isso garante que o vídeo tenha pouco mais de 1 minuto para monetização.
+                REGRA OBRIGATÓRIA 1: O roteiro DEVE terminar com uma afirmação forte, absoluta e controversa (uma "verdade nua e crua") que deixe a audiência revoltada ou com muita vontade de debater. NÃO peça para curtir, compartilhar ou comentar. Apenas jogue a bomba e termine o vídeo abruptamente.
+                REGRA OBRIGATÓRIA 2: O texto total deve ter {tamanho_max}. Isso garante que o vídeo tenha pouco mais de 1 minuto para monetização.
                 Retorne APENAS o texto puro, sem indicações de cena, sem aspas, sem asteriscos, sem hashtags e sem parênteses."""
                 
                 payload = {"contents": [{"parts": [{"text": prompt}]}]}
