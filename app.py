@@ -130,7 +130,7 @@ if botao_gerar:
                     audio_final_path = "musica_temp.mp3"
                     duracao_audio = min(AudioFileClip(audio_final_path).duration, 15)
 
-                with st.spinner("🎨 Criando legendas sincronizadas sem atraso..."):
+                with st.spinner("🎨 Criando legendas dinâmicas sincronizadas (Estilo TikTok)..."):
                     imagem_fundo_base = Image.open(imagem_carregada).resize((1080, 1920))
                     
                     mapa_cores = {
@@ -153,13 +153,12 @@ if botao_gerar:
                     
                     if "Voz" in tipo_audio:
                         palavras = texto_do_video.split()
-                        tamanho_grupo = 4 
+                        tamanho_grupo = 2  # <--- AJUSTE SÊNIOR: Blocos menores impedem o acúmulo de atraso no final
                         
                         grupos_de_palavras = [" ".join(palavras[i:i + tamanho_grupo]) for i in range(0, len(palavras), tamanho_grupo)]
                         total_palavras_roteiro = len(palavras)
                         
                         for i, frase in enumerate(grupos_de_palavras):
-                            # Sincronização exata por proporção de palavras (sem acumular atraso no final)
                             palavras_na_frase = len(frase.split())
                             peso_da_frase = palavras_na_frase / total_palavras_roteiro
                             duracao_frase = duracao_audio * peso_da_frase
