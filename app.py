@@ -2,7 +2,7 @@ import streamlit as st
 import os
 import requests
 import asyncio
-import edge_tts # MOTOR DE VOZ NEURAL (Humana)
+import edge_tts 
 from PIL import Image, ImageDraw, ImageFont
 from moviepy.editor import AudioFileClip, ImageClip, CompositeAudioClip, concatenate_videoclips
 
@@ -11,7 +11,6 @@ st.set_page_config(page_title="Super Gerador TikTok Grátis", page_icon="🎬", 
 st.title("🎬 Fábrica de Vídeos (Voz Humana + Legenda Dinâmica)")
 st.markdown("Configure o estilo do seu vídeo abaixo e deixe a IA trabalhar.")
 
-# Garante que a API Key existe nos Secrets do Streamlit
 try:
     api_key = st.secrets["GEMINI_API_KEY"]
 except Exception:
@@ -59,14 +58,19 @@ if botao_gerar:
     elif "Música" in tipo_audio and not musica_carregada:
         st.error("❌ Você selecionou uma opção com música, mas não enviou o arquivo .mp3!")
     else:
-        with st.spinner("🤖 Google Gemini escrevendo roteiro (foco em +1 minuto)..."):
+        with st.spinner("🤖 Google Gemini criando um roteiro polêmico e viral..."):
             try:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
                 headers = {'Content-Type': 'application/json'}
                 
-                # --- AJUSTE 1: FORÇANDO O GEMINI A ESCREVER MAIS DE 1 MINUTO ---
-                tamanho_max = "um texto longo, suficiente para no MÍNIMO 1 minuto e 15 segundos de leitura em voz alta (aproximadamente 200 a 250 palavras)" if "Voz" in tipo_audio else "máximo 140 caracteres"
-                prompt = f"Escreva um roteiro altamente retentivo e focado em conversão/vendas para o TikTok sobre o tema: {tema}. Tamanho: {tamanho_max}. Retorne APENAS o texto puro, sem indicações de cena, sem aspas, sem asteriscos, sem hashtags e sem parênteses."
+                # --- AJUSTE: MUDANÇA DE TOM (POLÊMICO/EXALTADO) E CTA NO FINAL ---
+                tamanho_max = "EXATAMENTE entre 150 e 170 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
+                
+                prompt = f"""Escreva um roteiro para TikTok/Shorts sobre o tema: '{tema}'.
+                O tom deve ser EXALTADO, PROVOCATIVO e um pouco POLÊMICO para prender a atenção e gerar debate na audiência.
+                REGRA OBRIGATÓRIA 1: O roteiro DEVE terminar EXATAMENTE com a seguinte frase: 'E aí, você concorda ou não com isso? Deixe sua opinião nos comentários.'
+                REGRA OBRIGATÓRIA 2: O texto total deve ter {tamanho_max} (já contando com a frase final). Isso garante que o vídeo tenha pouco mais de 1 minuto para monetização.
+                Retorne APENAS o texto puro, sem indicações de cena, sem aspas, sem asteriscos, sem hashtags e sem parênteses."""
                 
                 payload = {"contents": [{"parts": [{"text": prompt}]}]}
                 response = requests.post(url, headers=headers, json=payload)
@@ -74,7 +78,8 @@ if botao_gerar:
                 
                 texto_do_video = response_json['candidates'][0]['content']['parts'][0]['text'].strip()
                 texto_do_video = texto_do_video.replace("**", "").replace("*", "").replace('"', '')
-                st.info(f"📜 **Roteiro Gerado:**\n\n_{texto_do_video}_")
+                
+                st.info(f"📜 **Roteiro Gerado (Total: {len(texto_do_video.split())} palavras):**\n\n_{texto_do_video}_")
                 
                 audio_final_path = "audio_gerado_final.mp3"
                 arquivos_para_limpar = []
@@ -121,13 +126,10 @@ if botao_gerar:
                 with st.spinner("🎨 Criando legendas sincronizadas..."):
                     imagem_fundo_base = Image.open(imagem_carregada).resize((1080, 1920))
                     
-                    # --- AJUSTE 2: TAMANHO DA FONTE AUMENTADO PARA 90 ---
-                    # Lembre-se de colocar um arquivo 'fonte.ttf' no seu GitHub!
                     try:
                         font = ImageFont.truetype("fonte.ttf", 90)
                     except:
                         try:
-                            # Tenta puxar fonte do sistema Linux caso a fonte.ttf falhe
                             font = ImageFont.truetype("DejaVuSans-Bold.ttf", 90) 
                         except:
                             font = ImageFont.load_default()
@@ -155,11 +157,8 @@ if botao_gerar:
                                 largura_texto = len(frase) * 20 
                                 
                             pos_x = (1080 - largura_texto) // 2
-                            
-                            # --- AJUSTE 3: LEGENDA MAIS PARA BAIXO ---
                             pos_y = 1650 
                             
-                            # Efeito de sombra na letra
                             canvas.text((pos_x+4, pos_y+4), frase, font=font, fill="black")
                             canvas.text((pos_x, pos_y), frase, font=font, fill="white")
                             
@@ -185,7 +184,10 @@ if botao_gerar:
                         audio_codec="aac", ffmpeg_params=["-pix_fmt", "yuv420p"], logger=None
                     )
                 
-                st.success(f"🎉 VÍDEO DE {int(duracao_audio)} SEGUNDOS COMPLETADO COM SUCESSO!")
+                minutos = int(duracao_audio // 60)
+                segundos = int(duracao_audio % 60)
+                
+                st.success(f"🎉 VÍDEO COMPLETADO! Duração: {minutos}m {segundos}s.")
                 
                 with open("video_final_tiktok.mp4", "rb") as file:
                     st.download_button(
