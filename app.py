@@ -71,7 +71,6 @@ if botao_gerar:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
                 headers = {'Content-Type': 'application/json'}
                 
-                # --- AJUSTE: AUMENTAMOS PARA 170-190 PALAVRAS PARA GARANTIR > 1 MINUTO ---
                 tamanho_max = "EXATAMENTE entre 170 e 190 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
                 
                 prompt = f"""Escreva um roteiro para TikTok/Shorts sobre o tema: '{tema}'.
@@ -131,7 +130,7 @@ if botao_gerar:
                     audio_final_path = "musica_temp.mp3"
                     duracao_audio = min(AudioFileClip(audio_final_path).duration, 15)
 
-                with st.spinner("🎨 Criando legendas sincronizadas..."):
+                with st.spinner("🎨 Criando legendas sincronizadas com precisão de tempo..."):
                     imagem_fundo_base = Image.open(imagem_carregada).resize((1080, 1920))
                     
                     mapa_cores = {
@@ -157,11 +156,13 @@ if botao_gerar:
                         tamanho_grupo = 4 
                         
                         grupos_de_palavras = [" ".join(palavras[i:i + tamanho_grupo]) for i in range(0, len(palavras), tamanho_grupo)]
-                        total_caracteres = len(texto_do_video)
+                        total_palavras_roteiro = len(palavras)
                         
                         for i, frase in enumerate(grupos_de_palavras):
-                            peso_da_frase = len(frase) / total_caracteres
-                            duracao_frase = duracao_audio * peso_da_frase
+                            # Sincronização Sênior baseada em palavras + fator de respiro de 5%
+                            palavras_na_frase = len(frase.split())
+                            peso_da_frase = palavras_na_frase / total_palavras_roteiro
+                            duracao_frase = (duracao_audio * peso_da_frase) * 1.05
                             
                             img_frame = imagem_fundo_base.copy()
                             canvas = ImageDraw.Draw(img_frame)
