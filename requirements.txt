@@ -3,3 +3,4 @@ requests
 gTTS
 Pillow
 moviepy
+edge-tts
