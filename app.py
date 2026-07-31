@@ -4,11 +4,12 @@ import requests
 import asyncio
 import edge_tts 
 from PIL import Image, ImageDraw, ImageFont
-from moviepy.editor import AudioFileClip, ImageClip, CompositeAudioClip, concatenate_videoclips
+from moviepy.editor import AudioFileClip, ImageClip, CompositeAudioClip
+import textwrap
 
 st.set_page_config(page_title="Super Gerador TikTok Grátis", page_icon="🎬", layout="centered")
 
-st.title("🎬 Fábrica de Vídeos (Voz Humana + Legenda Dinâmica)")
+st.title("🎬 Fábrica de Vídeos (Fundo Fixo + Texto no Rodapé)")
 st.markdown("Configure o estilo do seu vídeo abaixo e deixe a IA trabalhar.")
 
 try:
@@ -18,7 +19,7 @@ except Exception:
     st.stop()
 
 with st.form(key="gerador_video"):
-    tema = st.text_input("Qual o tema do vídeo?", placeholder="Ex: Por que os grandes players usam paridade cambial")
+    tema = st.text_input("Qual o tema do vídeo?", placeholder="Ex: A rivalidade entre Senna e Prost")
     imagem_carregada = st.file_uploader("Suba sua imagem de fundo (.png ou .jpg)", type=["png", "jpg"])
     
     st.markdown("---")
@@ -130,7 +131,7 @@ if botao_gerar:
                     audio_final_path = "musica_temp.mp3"
                     duracao_audio = min(AudioFileClip(audio_final_path).duration, 15)
 
-                with st.spinner("🎨 Criando legendas sincronizadas sem atraso..."):
+                with st.spinner("🎨 Criando imagem estática com o texto fixo no rodapé..."):
                     imagem_fundo_base = Image.open(imagem_carregada).resize((1080, 1920))
                     
                     mapa_cores = {
@@ -142,58 +143,53 @@ if botao_gerar:
                     cor_texto = mapa_cores[cor_legenda]
 
                     try:
-                        font = ImageFont.truetype("fonte.ttf", 60)
+                        font = ImageFont.truetype("fonte.ttf", 46)
                     except:
                         try:
-                            font = ImageFont.truetype("DejaVuSans-Bold.ttf", 60)
+                            font = ImageFont.truetype("DejaVuSans-Bold.ttf", 46)
                         except:
                             font = ImageFont.load_default()
 
-                    clips_de_video = []
+                    # Vamos criar UMA ÚNICA imagem estática com o roteiro completo dividido em linhas no rodapé
+                    img_frame = imagem_fundo_base.copy()
+                    canvas = ImageDraw.Draw(img_frame)
                     
-                    if "Voz" in tipo_audio:
-                        palavras = texto_do_video.split()
-                        tamanho_grupo = 4 
-                        
-                        grupos_de_palavras = [" ".join(palavras[i:i + tamanho_grupo]) for i in range(0, len(palavras), tamanho_grupo)]
-                        total_palavras_roteiro = len(palavras)
-                        
-                        for i, frase in enumerate(grupos_de_palavras):
-                            # Sincronização exata por proporção de palavras (sem acumular atraso no final)
-                            palavras_na_frase = len(frase.split())
-                            peso_da_frase = palavras_na_frase / total_palavras_roteiro
-                            duracao_frase = duracao_audio * peso_da_frase
-                            
-                            img_frame = imagem_fundo_base.copy()
-                            canvas = ImageDraw.Draw(img_frame)
-                            
-                            try:
-                                bbox = canvas.textbbox((0, 0), frase, font=font)
-                                largura_texto = bbox[2] - bbox[0]
-                            except:
-                                largura_texto = len(frase) * 35 
-                                
-                            pos_x = (1080 - largura_texto) // 2
-                            pos_y = 1550 
-                            
-                            canvas.text((pos_x+5, pos_y+5), frase, font=font, fill="black")
-                            canvas.text((pos_x, pos_y), frase, font=font, fill=cor_texto)
-                            
-                            nome_frame = f"frame_temp_{i}.png"
-                            img_frame.save(nome_frame)
-                            arquivos_para_limpar.append(nome_frame)
-                            
-                            clip_img = ImageClip(nome_frame).set_duration(duracao_frase)
-                            clips_de_video.append(clip_img)
-                            
-                        video_final_sem_audio = concatenate_videoclips(clips_de_video, method="compose")
+                    # Quebra o texto total em linhas ajustadas para a largura do vídeo vertical
+                    linhas_roteiro = textwrap.wrap(texto_do_video, width=35)
                     
-                    else:
-                        video_final_sem_audio = ImageClip("fundo_final.png").set_duration(duracao_audio)
+                    # Se o texto for muito grande para caber de uma só vez de forma elegante, limitamos ou ajustamos a posição
+                    # Posicionamos o bloco de texto fixo na parte inferior (rodapé)
+                    y_inicial = 1200 # Posição inicial no eixo Y para começar o texto no rodapé
+                    
+                    for linha in linhas_roteiro:
+                        try:
+                            bbox = canvas.textbbox((0, 0), linha, font=font)
+                            largura_linha = bbox[2] - bbox[0]
+                        except:
+                            largura_linha = len(linha) * 22
+                            
+                        pos_x = (1080 - largura_linha) // 2
+                        
+                        # Sombra preta grossa para garantir legibilidade perfeita sobre qualquer foto de fundo
+                        canvas.text((pos_x+4, y_inicial+4), linha, font=font, fill="black")
+                        canvas.text((pos_x+4, y_inicial-4), linha, font=font, fill="black")
+                        canvas.text((pos_x-4, y_inicial+4), linha, font=font, fill="black")
+                        canvas.text((pos_x-4, y_inicial-4), linha, font=font, fill="black")
+                        
+                        # Texto principal na cor escolhida
+                        canvas.text((pos_x, y_inicial), linha, font=font, fill=cor_texto)
+                        
+                        y_inicial += 55 # Espaçamento entre linhas
 
-                with st.spinner("🎬 Juntando tudo no MP4 final..."):
-                    audio_clip = AudioFileClip(audio_final_path)
+                    nome_imagem_estatica = "fundo_com_texto_fixo.png"
+                    img_frame.save(nome_imagem_estatica)
+                    arquivos_para_limpar.append(nome_imagem_estatica)
                     
+                    # Criamos um único ImageClip estático que dura exatamente o tempo completo do áudio
+                    video_final_sem_audio = ImageClip(nome_imagem_estatica).set_duration(duracao_audio)
+
+                with st.spinner("🎬 Renderizando vídeo final..."):
+                    audio_clip = AudioFileClip(audio_final_path)
                     video_final = video_final_sem_audio.set_audio(audio_clip)
                     
                     video_final.write_videofile(
