@@ -9,7 +9,7 @@ import textwrap
 
 st.set_page_config(page_title="Super Gerador TikTok Grátis", page_icon="🎬", layout="centered")
 
-st.title("🎬 Fábrica de Vídeos (Fundo Fixo + Ajuste de Posição e Áudio)")
+st.title("🎬 Fábrica de Vídeos (Fundo Fixo + Anti-Gaguejo)")
 st.markdown("Configure o estilo do seu vídeo abaixo e deixe a IA trabalhar.")
 
 try:
@@ -67,17 +67,18 @@ if botao_gerar:
     elif "Música" in tipo_audio and not musica_carregada:
         st.error("❌ Você selecionou uma opção com música, mas não enviou o arquivo .mp3!")
     else:
-        with st.spinner("🤖 Google Gemini criando o roteiro limpo e otimizado..."):
+        with st.spinner("🤖 Google Gemini criando o roteiro limpo..."):
             try:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
                 headers = {'Content-Type': 'application/json'}
                 
-                tamanho_max = "EXATAMENTE entre 135 e 145 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
+                tamanho_max = "cerca de 135 a 145 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
                 
                 prompt = f"""Escreva um roteiro para TikTok/Shorts sobre o tema: '{tema}'.
                 O tom deve ser EXALTADO, PROVOCATIVO e um pouco POLÊMICO para prender a atenção e gerar debate na audiência.
-                REGRA OBRIGATÓRIA 1: O roteiro DEVE terminar com uma afirmação forte, absoluta e controversa (uma "verdade nua e crua") que deixe a audiência revoltada ou com muita vontade de debater. NÃO peça para curtir, compartilhar ou comentar. Apenas jogue a bomba e termine o vídeo abruptamente.
+                REGRA OBRIGATÓRIA 1: O roteiro DEVE terminar com uma afirmação forte, absoluta e controversa que deixe a audiência revoltada ou com muita vontade de debater. NÃO peça para curtir, compartilhar ou comentar. Apenas jogue a bomba e termine o vídeo abruptamente.
                 REGRA OBRIGATÓRIA 2: O texto total deve ter {tamanho_max}.
+                REGRA OBRIGATÓRIA 3: NUNCA repita palavras, sílabas ou crie gaguejos no final das frases ou nomes (como 'leclercler'). Escreva de forma limpa, natural e correta até o último caractere.
                 Retorne APENAS o texto puro, sem indicações de cena, sem aspas, sem asteriscos, sem hashtags e sem parênteses."""
                 
                 payload = {"contents": [{"parts": [{"text": prompt}]}]}
@@ -87,11 +88,15 @@ if botao_gerar:
                 texto_do_video = response_json['candidates'][0]['content']['parts'][0]['text'].strip()
                 texto_do_video = texto_do_video.replace("**", "").replace("*", "").replace('"', '')
                 
-                # Filtro para corrigir repetições indesejadas no final (ex: "LECLERC clerc")
-                words = texto_do_video.split()
-                if len(words) > 1 and words[-1].lower() == words[-2].lower():
-                    words.pop()
-                    texto_do_video = " ".join(words)
+                # Limpeza extra de segurança para remover qualquer duplicação de palavras/sílabas no final
+                palavras = texto_do_video.split()
+                if len(palavras) > 1:
+                    ultima = palavras[-1].lower()
+                    penultima = palavras[-2].lower()
+                    # Se a última palavra for igual à penúltima ou contiver repetição de sílaba colada
+                    if ultima == penultima or (len(ultima) > 4 and ultima.startswith(penultima[:3])):
+                        palavras.pop()
+                        texto_do_video = " ".join(palavras)
                 
                 st.info(f"📜 **Roteiro Gerado (Total: {len(texto_do_video.split())} palavras):**\n\n_{texto_do_video}_")
                 
@@ -99,7 +104,7 @@ if botao_gerar:
                 arquivos_para_limpar = []
 
                 if tipo_audio == "Apenas Voz Narrada":
-                    with st.spinner("🎙️ Gerando narração limpa e sem repetições..."):
+                    with st.spinner("🎙️ Gerando narração limpa e sem falhas..."):
                         sucesso = asyncio.run(gerar_audio_neural(texto_do_video, audio_final_path, voice_id))
                         if sucesso:
                             arquivos_para_limpar.append(audio_final_path)
@@ -137,7 +142,7 @@ if botao_gerar:
                     audio_final_path = "musica_temp.mp3"
                     duracao_audio = min(AudioFileClip(audio_final_path).duration, 65)
 
-                with st.spinner("🎨 Ajustando a posição do texto na tela..."):
+                with st.spinner("🎨 Posicionando o texto na tela..."):
                     imagem_fundo_base = Image.open(imagem_carregada).resize((1080, 1920))
                     
                     mapa_cores = {
@@ -161,7 +166,7 @@ if botao_gerar:
                     
                     linhas_roteiro = textwrap.wrap(texto_do_video, width=42)
                     
-                    # Texto descido ligeiramente para a posição ideal (y_inicial = 820)
+                    # Posição ideal na tela (y_inicial = 820)
                     y_inicial = 820 
                     
                     for linha in linhas_roteiro:
