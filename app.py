@@ -4,11 +4,12 @@ import requests
 import asyncio
 import edge_tts 
 from PIL import Image, ImageDraw, ImageFont
-from moviepy.editor import AudioFileClip, ImageClip, CompositeAudioClip, concatenate_videoclips, VideoFileClip
+from moviepy.editor import AudioFileClip, ImageClip, CompositeAudioClip
+import textwrap
 
 st.set_page_config(page_title="Super Gerador TikTok Grátis", page_icon="🎬", layout="centered")
 
-st.title("🎬 Fábrica de Vídeos (Voz Humana + Legenda Dinâmica + Vídeo de Fundo)")
+st.title("🎬 Fábrica de Vídeos (Fundo Fixo + Anti-Gaguejo)")
 st.markdown("Configure o estilo do seu vídeo abaixo e deixe a IA trabalhar.")
 
 try:
@@ -18,8 +19,8 @@ except Exception:
     st.stop()
 
 with st.form(key="gerador_video"):
-    tema = st.text_input("Qual o tema do vídeo?", placeholder="Ex: Por que os grandes players usam paridade cambial")
-    video_carregado = st.file_uploader("Suba seu vídeo de fundo (.mp4 ou .mov)", type=["mp4", "mov"])
+    tema = st.text_input("Qual o tema do vídeo?", placeholder="Ex: A rivalidade entre Senna e Prost")
+    imagem_carregada = st.file_uploader("Suba sua imagem de fundo (.png ou .jpg)", type=["png", "jpg"])
     
     st.markdown("---")
     st.subheader("🎨 Configurações de Estilo da Legenda")
@@ -54,46 +55,48 @@ with st.form(key="gerador_video"):
 
 async def gerar_audio_neural(texto, caminho_saida, voz):
     try:
-        communicate = edge_tts.Communicate(texto, voz)
+        communicate = edge_tts.Communicate(texto, voz, rate="-10%")
         await communicate.save(caminho_saida)
         return True
     except Exception as e:
         return False
 
 if botao_gerar:
-    if not tema or not video_carregado:
-        st.error("❌ Por favor, preencha o Tema e envie o Vídeo de fundo!")
+    if not tema or not imagem_carregada:
+        st.error("❌ Por favor, preencha o Tema e envie a Imagem!")
     elif "Música" in tipo_audio and not musica_carregada:
         st.error("❌ Você selecionou uma opção com música, mas não enviou o arquivo .mp3!")
     else:
-        with st.spinner("🤖 Google Gemini criando um roteiro polêmico e garantindo mais de 1 minuto..."):
+        with st.spinner("🤖 Google Gemini criando o roteiro limpo..."):
             try:
-                # URL corrigida para a versão v1 e gemini-1.5-flash
-                url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={api_key}"
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
                 headers = {'Content-Type': 'application/json'}
                 
-                tamanho_max = "EXATAMENTE entre 170 e 190 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
+                tamanho_max = "cerca de 135 a 145 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
                 
                 prompt = f"""Escreva um roteiro para TikTok/Shorts sobre o tema: '{tema}'.
                 O tom deve ser EXALTADO, PROVOCATIVO e um pouco POLÊMICO para prender a atenção e gerar debate na audiência.
-                REGRA OBRIGATÓRIA 1: O roteiro DEVE terminar com uma afirmação forte, absoluta e controversa (uma "verdade nua e crua") que deixe a audiência revoltada ou com muita vontade de debater. NÃO peça para curtir, compartilhar ou comentar. Apenas jogue a bomba e termine o vídeo abruptamente.
-                REGRA OBRIGATÓRIA 2: O texto total deve ter {tamanho_max}. Isso garante obrigatoriamente que o vídeo ultrapasse 1 minuto para fins de monetização.
+                REGRA OBRIGATÓRIA 1: O roteiro DEVE terminar com uma afirmação forte, absoluta e controversa que deixe a audiência revoltada ou com muita vontade de debater. NÃO peça para curtir, compartilhar ou comentar. Apenas jogue a bomba e termine o vídeo abruptamente.
+                REGRA OBRIGATÓRIA 2: O texto total deve ter {tamanho_max}.
+                REGRA OBRIGATÓRIA 3: NUNCA repita palavras, sílabas ou crie gaguejos no final das frases ou nomes (como 'leclercler'). Escreva de forma limpa, natural e correta até o último caractere.
                 Retorne APENAS o texto puro, sem indicações de cena, sem aspas, sem asteriscos, sem hashtags e sem parênteses."""
                 
                 payload = {"contents": [{"parts": [{"text": prompt}]}]}
                 response = requests.post(url, headers=headers, json=payload)
                 response_json = response.json()
                 
-                if 'error' in response_json:
-                    st.error(f"❌ Erro da API do Gemini: {response_json['error'].get('message', 'Erro desconhecido')}")
-                    st.stop()
-                
-                if 'candidates' not in response_json or len(response_json['candidates']) == 0:
-                    st.error(f"❌ Resposta inesperada da API: {response_json}")
-                    st.stop()
-                
                 texto_do_video = response_json['candidates'][0]['content']['parts'][0]['text'].strip()
                 texto_do_video = texto_do_video.replace("**", "").replace("*", "").replace('"', '')
+                
+                # Limpeza extra de segurança para remover qualquer duplicação de palavras/sílabas no final
+                palavras = texto_do_video.split()
+                if len(palavras) > 1:
+                    ultima = palavras[-1].lower()
+                    penultima = palavras[-2].lower()
+                    # Se a última palavra for igual à penúltima ou contiver repetição de sílaba colada
+                    if ultima == penultima or (len(ultima) > 4 and ultima.startswith(penultima[:3])):
+                        palavras.pop()
+                        texto_do_video = " ".join(palavras)
                 
                 st.info(f"📜 **Roteiro Gerado (Total: {len(texto_do_video.split())} palavras):**\n\n_{texto_do_video}_")
                 
@@ -101,7 +104,7 @@ if botao_gerar:
                 arquivos_para_limpar = []
 
                 if tipo_audio == "Apenas Voz Narrada":
-                    with st.spinner("🎙️ Gerando narração com voz humana..."):
+                    with st.spinner("🎙️ Gerando narração limpa e sem falhas..."):
                         sucesso = asyncio.run(gerar_audio_neural(texto_do_video, audio_final_path, voice_id))
                         if sucesso:
                             arquivos_para_limpar.append(audio_final_path)
@@ -111,7 +114,7 @@ if botao_gerar:
                             st.stop()
                 
                 elif tipo_audio == "Voz Narrada + Música de Fundo":
-                    with st.spinner("🎛️ Combinando Voz Humana + Música..."):
+                    with st.spinner("🎛️ Combinando Voz + Música..."):
                         sucesso = asyncio.run(gerar_audio_neural(texto_do_video, "voz_temp.mp3", voice_id))
                         if sucesso:
                             arquivos_para_limpar.append("voz_temp.mp3")
@@ -137,32 +140,10 @@ if botao_gerar:
                         f.write(musica_carregada.getbuffer())
                     arquivos_para_limpar.append("musica_temp.mp3")
                     audio_final_path = "musica_temp.mp3"
-                    duracao_audio = min(AudioFileClip(audio_final_path).duration, 15)
+                    duracao_audio = min(AudioFileClip(audio_final_path).duration, 65)
 
-                with st.spinner("🎨 Processando o vídeo de fundo e legendas sincronizadas..."):
-                    caminho_video_temp = "video_upload_temp.mp4"
-                    with open(caminho_video_temp, "wb") as f:
-                        f.write(video_carregado.getbuffer())
-                    arquivos_para_limpar.append(caminho_video_temp)
-                    
-                    video_base = VideoFileClip(caminho_video_temp)
-                    
-                    if video_base.duration < duracao_audio:
-                        video_base = video_base.loop(duration=duracao_audio)
-                    else:
-                        video_base = video_base.subclip(0, duracao_audio)
-                    
-                    w, h = video_base.size
-                    tamanho_alvo_w, tamanho_alvo_h = 1080, 1920
-                    
-                    escala = max(tamanho_alvo_w / w, tamanho_alvo_h / h)
-                    video_redimensionado = video_base.resize(escala)
-                    video_cortado = video_redimensionado.crop(
-                        x_center=video_redimensionado.w / 2,
-                        y_center=video_redimensionado.h / 2,
-                        width=tamanho_alvo_w,
-                        height=tamanho_alvo_h
-                    )
+                with st.spinner("🎨 Posicionando o texto na tela..."):
+                    imagem_fundo_base = Image.open(imagem_carregada).resize((1080, 1920))
                     
                     mapa_cores = {
                         "Branco": "white",
@@ -173,63 +154,47 @@ if botao_gerar:
                     cor_texto = mapa_cores[cor_legenda]
 
                     try:
-                        font = ImageFont.truetype("fonte.ttf", 60)
+                        font = ImageFont.truetype("fonte.ttf", 32)
                     except:
                         try:
-                            font = ImageFont.truetype("DejaVuSans-Bold.ttf", 60)
+                            font = ImageFont.truetype("DejaVuSans-Bold.ttf", 32)
                         except:
                             font = ImageFont.load_default()
 
-                    clips_de_video = []
+                    img_frame = imagem_fundo_base.copy()
+                    canvas = ImageDraw.Draw(img_frame)
                     
-                    if "Voz" in tipo_audio:
-                        palavras = texto_do_video.split()
-                        tamanho_grupo = 4 
-                        
-                        grupos_de_palavras = [" ".join(palavras[i:i + tamanho_grupo]) for i in range(0, len(palavras), tamanho_grupo)]
-                        total_palavras_roteiro = len(palavras)
-                        
-                        t_atual = 0
-                        for i, frase in enumerate(grupos_de_palavras):
-                            palavras_na_frase = len(frase.split())
-                            peso_da_frase = palavras_na_frase / total_palavras_roteiro
-                            duracao_frase = duracao_audio * peso_da_frase
-                            
-                            fim_clip = min(t_atual + duracao_frase, duracao_audio)
-                            sub_video = video_cortado.subclip(t_atual, fim_clip)
-                            t_atual = fim_clip
-                            
-                            img_frame = Image.new("RGBA", (1080, 1920), (0, 0, 0, 0))
-                            canvas = ImageDraw.Draw(img_frame)
-                            
-                            try:
-                                bbox = canvas.textbbox((0, 0), frase, font=font)
-                                largura_texto = bbox[2] - bbox[0]
-                            except:
-                                largura_texto = len(frase) * 35 
-                                
-                            pos_x = (1080 - largura_texto) // 2
-                            pos_y = 1550 
-                            
-                            canvas.text((pos_x+5, pos_y+5), frase, font=font, fill="black")
-                            canvas.text((pos_x, pos_y), frase, font=font, fill=cor_texto)
-                            
-                            nome_frame = f"frame_temp_{i}.png"
-                            img_frame.save(nome_frame)
-                            arquivos_para_limpar.append(nome_frame)
-                            
-                            clip_img = ImageClip(nome_frame).set_duration(sub_video.duration)
-                            clip_com_legenda = CompositeVideoClip([sub_video, clip_img])
-                            clips_de_video.append(clip_com_legenda)
-                            
-                        video_final_sem_audio = concatenate_videoclips(clips_de_video, method="compose")
+                    linhas_roteiro = textwrap.wrap(texto_do_video, width=42)
                     
-                    else:
-                        video_final_sem_audio = video_cortado
+                    # Posição ideal na tela (y_inicial = 820)
+                    y_inicial = 820 
+                    
+                    for linha in linhas_roteiro:
+                        try:
+                            bbox = canvas.textbbox((0, 0), linha, font=font)
+                            largura_linha = bbox[2] - bbox[0]
+                        except:
+                            largura_linha = len(linha) * 17
+                            
+                        pos_x = (1080 - largura_linha) // 2
+                        
+                        canvas.text((pos_x+3, y_inicial+3), linha, font=font, fill="black")
+                        canvas.text((pos_x+3, y_inicial-3), linha, font=font, fill="black")
+                        canvas.text((pos_x-3, y_inicial+3), linha, font=font, fill="black")
+                        canvas.text((pos_x-3, y_inicial-3), linha, font=font, fill="black")
+                        
+                        canvas.text((pos_x, y_inicial), linha, font=font, fill=cor_texto)
+                        
+                        y_inicial += 40
 
-                with st.spinner("🎬 Juntando tudo no MP4 final..."):
-                    audio_clip = AudioFileClip(audio_final_path)
+                    nome_imagem_estatica = "fundo_com_texto_fixo.png"
+                    img_frame.save(nome_imagem_estatica)
+                    arquivos_para_limpar.append(nome_imagem_estatica)
                     
+                    video_final_sem_audio = ImageClip(nome_imagem_estatica).set_duration(duracao_audio)
+
+                with st.spinner("🎬 Renderizando vídeo final..."):
+                    audio_clip = AudioFileClip(audio_final_path)
                     video_final = video_final_sem_audio.set_audio(audio_clip)
                     
                     video_final.write_videofile(
