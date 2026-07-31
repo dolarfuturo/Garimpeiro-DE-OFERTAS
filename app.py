@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import asyncio
+import time
 import edge_tts 
 import requests
 from PIL import Image, ImageDraw, ImageFont
@@ -61,7 +62,6 @@ async def gerar_audio_neural(texto, caminho_saida, voz):
         return False
 
 def descobrir_modelo_compativel(api_key):
-    """Consulta o ModelService.ListModels automaticamente para achar um modelo válido para a chave."""
     versoes = ["v1", "v1beta"]
     for versao in versoes:
         url_lista = f"https://generativelanguage.googleapis.com/{versao}/models?key={api_key}"
@@ -76,7 +76,7 @@ def descobrir_modelo_compativel(api_key):
                         return versao, nome_limpo
         except:
             continue
-    return "v1", "gemini-1.5-flash" # Padrão de segurança caso falhe
+    return "v1", "gemini-2.5-flash"
 
 if botao_gerar:
     if not tema or not video_carregado:
@@ -86,7 +86,6 @@ if botao_gerar:
     else:
         with st.spinner("🤖 Consultando a API e criando roteiro inteligente..."):
             try:
-                # Descobre automaticamente qual versão e modelo a API aceita para esta chave
                 versao_api, modelo_ativo = descobrir_modelo_compativel(api_key)
                 
                 url = f"https://generativelanguage.googleapis.com/{versao_api}/models/{modelo_ativo}:generateContent?key={api_key}"
@@ -106,11 +105,29 @@ if botao_gerar:
                     }]
                 }
                 
-                response = requests.post(url, headers=headers, json=payload)
-                res_json = response.json()
+                # Sistema de segurança com novas tentativas automáticas em caso de limite de cota atingido
+                resposta_sucesso = False
+                res_json = {}
                 
-                if "error" in res_json:
-                    st.error(f"❌ Erro retornado pela API ({modelo_ativo}): {res_json['error'].get('message', 'Erro desconhecido')}")
+                for tentativa in range(3):
+                    response = requests.post(url, headers=headers, json=payload)
+                    res_json = response.json()
+                    
+                    if "error" in res_json:
+                        erro_msg = res_json['error'].get('message', '')
+                        if "quota" in erro_msg.lower() or "exceeded" in erro_msg.lower() or "rate limit" in erro_msg.lower() or "429" in str(response.status_code):
+                            if tentativa < 2:
+                                st.warning(f"⚠️ Limite de requisições temporário atingido (Free Tier). Aguardando 45 segundos para tentar novamente automaticamente (Tentativa {tentativa+1}/3)...")
+                                time.sleep(45)
+                                continue
+                        st.error(f"❌ Erro retornado pela API ({modelo_ativo}): {erro_msg}")
+                        st.stop()
+                    else:
+                        resposta_sucesso = True
+                        break
+                
+                if not resposta_sucesso:
+                    st.error("❌ O limite de cota da API foi excedido consecutivamente. Aguarde alguns minutos e tente novamente.")
                     st.stop()
                 
                 texto_do_video = res_json['candidates'][0]['content']['parts'][0]['text'].strip()
