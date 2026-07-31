@@ -3,13 +3,14 @@ import os
 import requests
 import asyncio
 import edge_tts 
+import re
 from PIL import Image, ImageDraw, ImageFont
 from moviepy.editor import AudioFileClip, ImageClip, CompositeAudioClip
 import textwrap
 
 st.set_page_config(page_title="Super Gerador TikTok Grátis", page_icon="🎬", layout="centered")
 
-st.title("🎬 Fábrica de Vídeos (Fundo Fixo + Anti-Gaguejo)")
+st.title("🎬 Fábrica de Vídeos (Fundo Fixo + Anti-Gaguejo Avançado)")
 st.markdown("Configure o estilo do seu vídeo abaixo e deixe a IA trabalhar.")
 
 try:
@@ -78,7 +79,7 @@ if botao_gerar:
                 O tom deve ser EXALTADO, PROVOCATIVO e um pouco POLÊMICO para prender a atenção e gerar debate na audiência.
                 REGRA OBRIGATÓRIA 1: O roteiro DEVE terminar com uma afirmação forte, absoluta e controversa que deixe a audiência revoltada ou com muita vontade de debater. NÃO peça para curtir, compartilhar ou comentar. Apenas jogue a bomba e termine o vídeo abruptamente.
                 REGRA OBRIGATÓRIA 2: O texto total deve ter {tamanho_max}.
-                REGRA OBRIGATÓRIA 3: NUNCA repita palavras, sílabas ou crie gaguejos no final das frases ou nomes (como 'leclercler'). Escreva de forma limpa, natural e correta até o último caractere.
+                REGRA OBRIGATÓRIA 3: NUNCA repita palavras seguidas ou crie gaguejos no final das frases. Escreva de forma limpa e natural.
                 Retorne APENAS o texto puro, sem indicações de cena, sem aspas, sem asteriscos, sem hashtags e sem parênteses."""
                 
                 payload = {"contents": [{"parts": [{"text": prompt}]}]}
@@ -88,15 +89,18 @@ if botao_gerar:
                 texto_do_video = response_json['candidates'][0]['content']['parts'][0]['text'].strip()
                 texto_do_video = texto_do_video.replace("**", "").replace("*", "").replace('"', '')
                 
-                # Limpeza extra de segurança para remover qualquer duplicação de palavras/sílabas no final
+                # Limpeza avançada anti-gaguejo (remove palavras duplicadas consecutivas ignorando pontuação)
                 palavras = texto_do_video.split()
                 if len(palavras) > 1:
-                    ultima = palavras[-1].lower()
-                    penultima = palavras[-2].lower()
-                    # Se a última palavra for igual à penúltima ou contiver repetição de sílaba colada
-                    if ultima == penultima or (len(ultima) > 4 and ultima.startswith(penultima[:3])):
+                    # Limpa pontuação da última palavra para comparar com a penúltima
+                    ultima_limpa = re.sub(r'[^\w]', '', palavras[-1]).lower()
+                    penultima_limpa = re.sub(r'[^\w]', '', palavras[-2]).lower()
+                    if ultima_limpa == penultima_limpa and ultima_limpa != "":
                         palavras.pop()
                         texto_do_video = " ".join(palavras)
+                
+                # Remove repetições internas caso ocorram no meio do texto
+                texto_do_video = re.sub(r'\b([A-Za-zÀ-ÿ]+)(?:\s+[^\w]*\s*|\s+)\1\b', r'\1', texto_do_video, flags=re.IGNORECASE)
                 
                 st.info(f"📜 **Roteiro Gerado (Total: {len(texto_do_video.split())} palavras):**\n\n_{texto_do_video}_")
                 
@@ -166,7 +170,6 @@ if botao_gerar:
                     
                     linhas_roteiro = textwrap.wrap(texto_do_video, width=42)
                     
-                    # Posição ideal na tela (y_inicial = 820)
                     y_inicial = 820 
                     
                     for linha in linhas_roteiro:
