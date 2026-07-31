@@ -5,6 +5,11 @@ import time
 import edge_tts 
 import requests
 from PIL import Image, ImageDraw, ImageFont
+
+# Correção de compatibilidade para versões novas do Pillow (PIL)
+if not hasattr(Image, 'ANTIALIAS'):
+    Image.ANTIALIAS = Image.Resampling.LANCZOS
+
 from moviepy.editor import AudioFileClip, ImageClip, CompositeAudioClip, concatenate_videoclips, VideoFileClip
 
 st.set_page_config(page_title="Super Gerador TikTok Grátis", page_icon="🎬", layout="centered")
@@ -105,7 +110,6 @@ if botao_gerar:
                     }]
                 }
                 
-                # Sistema de segurança com novas tentativas automáticas em caso de limite de cota atingido
                 resposta_sucesso = False
                 res_json = {}
                 
@@ -117,7 +121,7 @@ if botao_gerar:
                         erro_msg = res_json['error'].get('message', '')
                         if "quota" in erro_msg.lower() or "exceeded" in erro_msg.lower() or "rate limit" in erro_msg.lower() or "429" in str(response.status_code):
                             if tentativa < 2:
-                                st.warning(f"⚠️ Limite de requisições temporário atingido (Free Tier). Aguardando 45 segundos para tentar novamente automaticamente (Tentativa {tentativa+1}/3)...")
+                                st.warning(f"⚠️ Limite de requisições temporário atingido. Aguardando 45 segundos para tentar novamente (Tentativa {tentativa+1}/3)...")
                                 time.sleep(45)
                                 continue
                         st.error(f"❌ Erro retornado pela API ({modelo_ativo}): {erro_msg}")
