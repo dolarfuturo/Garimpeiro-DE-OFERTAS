@@ -60,16 +60,36 @@ async def gerar_audio_neural(texto, caminho_saida, voz):
     except Exception as e:
         return False
 
+def descobrir_modelo_compativel(api_key):
+    """Consulta o ModelService.ListModels automaticamente para achar um modelo válido para a chave."""
+    versoes = ["v1", "v1beta"]
+    for versao in versoes:
+        url_lista = f"https://generativelanguage.googleapis.com/{versao}/models?key={api_key}"
+        try:
+            resp = requests.get(url_lista)
+            if resp.status_code == 200:
+                dados = resp.json()
+                for m in dados.get("models", []):
+                    metodos = m.get("supportedGenerationMethods", [])
+                    if "generateContent" in metodos:
+                        nome_limpo = m["name"].replace("models/", "")
+                        return versao, nome_limpo
+        except:
+            continue
+    return "v1", "gemini-1.5-flash" # Padrão de segurança caso falhe
+
 if botao_gerar:
     if not tema or not video_carregado:
         st.error("❌ Por favor, preencha o Tema e envie o Vídeo de fundo!")
     elif "Música" in tipo_audio and not musica_carregada:
         st.error("❌ Você selecionou uma opção com música, mas não enviou o arquivo .mp3!")
     else:
-        with st.spinner("🤖 Google Gemini criando um roteiro polêmico e garantindo mais de 1 minuto..."):
+        with st.spinner("🤖 Consultando a API e criando roteiro inteligente..."):
             try:
-                # Rota oficial v1 com o modelo estável gemini-pro
-                url = f"https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={api_key}"
+                # Descobre automaticamente qual versão e modelo a API aceita para esta chave
+                versao_api, modelo_ativo = descobrir_modelo_compativel(api_key)
+                
+                url = f"https://generativelanguage.googleapis.com/{versao_api}/models/{modelo_ativo}:generateContent?key={api_key}"
                 headers = {"Content-Type": "application/json"}
                 
                 tamanho_max = "EXATAMENTE entre 170 e 190 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
@@ -90,13 +110,13 @@ if botao_gerar:
                 res_json = response.json()
                 
                 if "error" in res_json:
-                    st.error(f"❌ Erro retornado pela API: {res_json['error'].get('message', 'Erro desconhecido')}")
+                    st.error(f"❌ Erro retornado pela API ({modelo_ativo}): {res_json['error'].get('message', 'Erro desconhecido')}")
                     st.stop()
                 
                 texto_do_video = res_json['candidates'][0]['content']['parts'][0]['text'].strip()
                 texto_do_video = texto_do_video.replace("**", "").replace("*", "").replace('"', '')
                 
-                st.info(f"📜 **Roteiro Gerado (Total: {len(texto_do_video.split())} palavras):**\n\n_{texto_do_video}_")
+                st.info(f"📜 **Roteiro Gerado com sucesso usando `{modelo_ativo}`:**\n\n_{texto_do_video}_")
                 
                 audio_final_path = "audio_gerado_final.mp3"
                 arquivos_para_limpar = []
@@ -258,3 +278,4 @@ if botao_gerar:
                         
             except Exception as e:
                 st.error(f"Erro inesperado no sistema: {e}")
+E
