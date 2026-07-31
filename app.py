@@ -10,7 +10,7 @@ import textwrap
 
 st.set_page_config(page_title="Super Gerador TikTok Grátis", page_icon="🎬", layout="centered")
 
-st.title("🎬 Fábrica de Vídeos (Fundo Fixo + Anti-Gaguejo Avançado)")
+st.title("🎬 Fábrica de Vídeos (Fundo Fixo + Anti-Gaguejo Definitivo)")
 st.markdown("Configure o estilo do seu vídeo abaixo e deixe a IA trabalhar.")
 
 try:
@@ -79,7 +79,7 @@ if botao_gerar:
                 O tom deve ser EXALTADO, PROVOCATIVO e um pouco POLÊMICO para prender a atenção e gerar debate na audiência.
                 REGRA OBRIGATÓRIA 1: O roteiro DEVE terminar com uma afirmação forte, absoluta e controversa que deixe a audiência revoltada ou com muita vontade de debater. NÃO peça para curtir, compartilhar ou comentar. Apenas jogue a bomba e termine o vídeo abruptamente.
                 REGRA OBRIGATÓRIA 2: O texto total deve ter {tamanho_max}.
-                REGRA OBRIGATÓRIA 3: NUNCA repita palavras seguidas ou crie gaguejos no final das frases. Escreva de forma limpa e natural.
+                REGRA OBRIGATÓRIA 3: NUNCA repita palavras, sílabas ou crie gaguejos no final das frases. Escreva de forma limpa e natural.
                 Retorne APENAS o texto puro, sem indicações de cena, sem aspas, sem asteriscos, sem hashtags e sem parênteses."""
                 
                 payload = {"contents": [{"parts": [{"text": prompt}]}]}
@@ -89,18 +89,16 @@ if botao_gerar:
                 texto_do_video = response_json['candidates'][0]['content']['parts'][0]['text'].strip()
                 texto_do_video = texto_do_video.replace("**", "").replace("*", "").replace('"', '')
                 
-                # Limpeza avançada anti-gaguejo (remove palavras duplicadas consecutivas ignorando pontuação)
+                # Filtro ultra rigoroso anti-gaguejo (se a última palavra for igual ou uma expansão da penúltima tipo "leclercler", apaga)
                 palavras = texto_do_video.split()
                 if len(palavras) > 1:
-                    # Limpa pontuação da última palavra para comparar com a penúltima
                     ultima_limpa = re.sub(r'[^\w]', '', palavras[-1]).lower()
                     penultima_limpa = re.sub(r'[^\w]', '', palavras[-2]).lower()
-                    if ultima_limpa == penultima_limpa and ultima_limpa != "":
+                    
+                    # Remove se for idêntica OU se for um gaguejo fundido no final (ex: "leclercler" começa com "leclerc")
+                    if ultima_limpa == penultima_limpa or (ultima_limpa.startswith(penultima_limpa) and len(ultima_limpa) > len(penultima_limpa)):
                         palavras.pop()
                         texto_do_video = " ".join(palavras)
-                
-                # Remove repetições internas caso ocorram no meio do texto
-                texto_do_video = re.sub(r'\b([A-Za-zÀ-ÿ]+)(?:\s+[^\w]*\s*|\s+)\1\b', r'\1', texto_do_video, flags=re.IGNORECASE)
                 
                 st.info(f"📜 **Roteiro Gerado (Total: {len(texto_do_video.split())} palavras):**\n\n_{texto_do_video}_")
                 
