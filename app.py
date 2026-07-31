@@ -9,7 +9,7 @@ import textwrap
 
 st.set_page_config(page_title="Super Gerador TikTok Grátis", page_icon="🎬", layout="centered")
 
-st.title("🎬 Fábrica de Vídeos (Fundo Fixo + 60 a 65 Segundos)")
+st.title("🎬 Fábrica de Vídeos (Fundo Fixo + Ajuste de Posição e Áudio)")
 st.markdown("Configure o estilo do seu vídeo abaixo e deixe a IA trabalhar.")
 
 try:
@@ -55,7 +55,6 @@ with st.form(key="gerador_video"):
 
 async def gerar_audio_neural(texto, caminho_saida, voz):
     try:
-        # rate="-10%" garante precisão exata para o alvo de 60 a 65 segundos com 135-145 palavras
         communicate = edge_tts.Communicate(texto, voz, rate="-10%")
         await communicate.save(caminho_saida)
         return True
@@ -68,12 +67,11 @@ if botao_gerar:
     elif "Música" in tipo_audio and not musica_carregada:
         st.error("❌ Você selecionou uma opção com música, mas não enviou o arquivo .mp3!")
     else:
-        with st.spinner("🤖 Google Gemini criando o roteiro com a quantidade exata de palavras..."):
+        with st.spinner("🤖 Google Gemini criando o roteiro limpo e otimizado..."):
             try:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
                 headers = {'Content-Type': 'application/json'}
                 
-                # Quantidade ideal e rigorosa para cravar entre 60 e 65 segundos de vídeo
                 tamanho_max = "EXATAMENTE entre 135 e 145 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
                 
                 prompt = f"""Escreva um roteiro para TikTok/Shorts sobre o tema: '{tema}'.
@@ -89,13 +87,19 @@ if botao_gerar:
                 texto_do_video = response_json['candidates'][0]['content']['parts'][0]['text'].strip()
                 texto_do_video = texto_do_video.replace("**", "").replace("*", "").replace('"', '')
                 
+                # Filtro para corrigir repetições indesejadas no final (ex: "LECLERC clerc")
+                words = texto_do_video.split()
+                if len(words) > 1 and words[-1].lower() == words[-2].lower():
+                    words.pop()
+                    texto_do_video = " ".join(words)
+                
                 st.info(f"📜 **Roteiro Gerado (Total: {len(texto_do_video.split())} palavras):**\n\n_{texto_do_video}_")
                 
                 audio_final_path = "audio_gerado_final.mp3"
                 arquivos_para_limpar = []
 
                 if tipo_audio == "Apenas Voz Narrada":
-                    with st.spinner("🎙️ Gerando narração com duração exata de 1 minuto..."):
+                    with st.spinner("🎙️ Gerando narração limpa e sem repetições..."):
                         sucesso = asyncio.run(gerar_audio_neural(texto_do_video, audio_final_path, voice_id))
                         if sucesso:
                             arquivos_para_limpar.append(audio_final_path)
@@ -133,7 +137,7 @@ if botao_gerar:
                     audio_final_path = "musica_temp.mp3"
                     duracao_audio = min(AudioFileClip(audio_final_path).duration, 65)
 
-                with st.spinner("🎨 Posicionando o texto completo na tela..."):
+                with st.spinner("🎨 Ajustando a posição do texto na tela..."):
                     imagem_fundo_base = Image.open(imagem_carregada).resize((1080, 1920))
                     
                     mapa_cores = {
@@ -144,7 +148,6 @@ if botao_gerar:
                     }
                     cor_texto = mapa_cores[cor_legenda]
 
-                    # Fonte tamanho 32 otimizada para acomodar até 145 palavras sem cortar
                     try:
                         font = ImageFont.truetype("fonte.ttf", 32)
                     except:
@@ -156,11 +159,10 @@ if botao_gerar:
                     img_frame = imagem_fundo_base.copy()
                     canvas = ImageDraw.Draw(img_frame)
                     
-                    # Largura ideal de 42 colunas
                     linhas_roteiro = textwrap.wrap(texto_do_video, width=42)
                     
-                    # Posição inicial no eixo Y ajustada para dar espaço vertical completo
-                    y_inicial = 750 
+                    # Texto descido ligeiramente para a posição ideal (y_inicial = 820)
+                    y_inicial = 820 
                     
                     for linha in linhas_roteiro:
                         try:
@@ -171,7 +173,6 @@ if botao_gerar:
                             
                         pos_x = (1080 - largura_linha) // 2
                         
-                        # Sombra grossa para legibilidade perfeita
                         canvas.text((pos_x+3, y_inicial+3), linha, font=font, fill="black")
                         canvas.text((pos_x+3, y_inicial-3), linha, font=font, fill="black")
                         canvas.text((pos_x-3, y_inicial+3), linha, font=font, fill="black")
@@ -179,7 +180,7 @@ if botao_gerar:
                         
                         canvas.text((pos_x, y_inicial), linha, font=font, fill=cor_texto)
                         
-                        y_inicial += 40 # Espaçamento compacto para caber todo o texto
+                        y_inicial += 40
 
                     nome_imagem_estatica = "fundo_com_texto_fixo.png"
                     img_frame.save(nome_imagem_estatica)
