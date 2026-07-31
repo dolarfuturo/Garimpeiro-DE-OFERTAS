@@ -10,7 +10,7 @@ import textwrap
 
 st.set_page_config(page_title="Super Gerador TikTok Grátis", page_icon="🎬", layout="centered")
 
-st.title("🎬 Fábrica de Vídeos (Fundo Fixo + Anti-Gaguejo Definitivo)")
+st.title("🎬 Fábrica de Vídeos (Fundo Fixo + Correção de Fim Seco)")
 st.markdown("Configure o estilo do seu vídeo abaixo e deixe a IA trabalhar.")
 
 try:
@@ -89,16 +89,21 @@ if botao_gerar:
                 texto_do_video = response_json['candidates'][0]['content']['parts'][0]['text'].strip()
                 texto_do_video = texto_do_video.replace("**", "").replace("*", "").replace('"', '')
                 
-                # Filtro ultra rigoroso anti-gaguejo (se a última palavra for igual ou uma expansão da penúltima tipo "leclercler", apaga)
+                # Garante que o texto termina sempre com pontuação correta (evita engasgos do TTS em consoantes mudas)
+                texto_do_video = texto_do_video.strip()
+                if not texto_do_video.endswith(('.', '!', '?')):
+                    texto_do_video += '.'
+                
+                # Filtro ultra rigoroso anti-gaguejo final
                 palavras = texto_do_video.split()
                 if len(palavras) > 1:
                     ultima_limpa = re.sub(r'[^\w]', '', palavras[-1]).lower()
                     penultima_limpa = re.sub(r'[^\w]', '', palavras[-2]).lower()
-                    
-                    # Remove se for idêntica OU se for um gaguejo fundido no final (ex: "leclercler" começa com "leclerc")
                     if ultima_limpa == penultima_limpa or (ultima_limpa.startswith(penultima_limpa) and len(ultima_limpa) > len(penultima_limpa)):
                         palavras.pop()
                         texto_do_video = " ".join(palavras)
+                        if not texto_do_video.endswith('.'):
+                            texto_do_video += '.'
                 
                 st.info(f"📜 **Roteiro Gerado (Total: {len(texto_do_video.split())} palavras):**\n\n_{texto_do_video}_")
                 
