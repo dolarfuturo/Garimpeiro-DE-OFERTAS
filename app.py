@@ -9,7 +9,7 @@ import textwrap
 
 st.set_page_config(page_title="Super Gerador TikTok Grátis", page_icon="🎬", layout="centered")
 
-st.title("🎬 Fábrica de Vídeos (Fundo Fixo + Texto Ajustado)")
+st.title("🎬 Fábrica de Vídeos (Texto Otimizado + Voz Pausada)")
 st.markdown("Configure o estilo do seu vídeo abaixo e deixe a IA trabalhar.")
 
 try:
@@ -55,7 +55,8 @@ with st.form(key="gerador_video"):
 
 async def gerar_audio_neural(texto, caminho_saida, voz):
     try:
-        communicate = edge_tts.Communicate(texto, voz)
+        # rate="-15%" desacelera ligeiramente a fala para dar um tom cinematográfico e manter os 60+ segundos com menos palavras
+        communicate = edge_tts.Communicate(texto, voz, rate="-15%")
         await communicate.save(caminho_saida)
         return True
     except Exception as e:
@@ -67,18 +68,18 @@ if botao_gerar:
     elif "Música" in tipo_audio and not musica_carregada:
         st.error("❌ Você selecionou uma opção com música, mas não enviou o arquivo .mp3!")
     else:
-        with st.spinner("🤖 Google Gemini criando o roteiro..."):
+        with st.spinner("🤖 Google Gemini criando o roteiro focado em leitura visual..."):
             try:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
                 headers = {'Content-Type': 'application/json'}
                 
-                # Mantemos a regra de tamanho para garantir os 75+ segundos para monetização
-                tamanho_max = "EXATAMENTE entre 170 e 190 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
+                # Reduzimos a quantidade de palavras para o texto caber perfeitamente na tela com letra grande
+                tamanho_max = "EXATAMENTE entre 75 e 85 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
                 
                 prompt = f"""Escreva um roteiro para TikTok/Shorts sobre o tema: '{tema}'.
                 O tom deve ser EXALTADO, PROVOCATIVO e um pouco POLÊMICO para prender a atenção e gerar debate na audiência.
                 REGRA OBRIGATÓRIA 1: O roteiro DEVE terminar com uma afirmação forte, absoluta e controversa (uma "verdade nua e crua") que deixe a audiência revoltada ou com muita vontade de debater. NÃO peça para curtir, compartilhar ou comentar. Apenas jogue a bomba e termine o vídeo abruptamente.
-                REGRA OBRIGATÓRIA 2: O texto total deve ter {tamanho_max}. Isso garante obrigatoriamente que o vídeo ultrapasse 1 minuto para fins de monetização.
+                REGRA OBRIGATÓRIA 2: O texto total deve ter {tamanho_max}.
                 Retorne APENAS o texto puro, sem indicações de cena, sem aspas, sem asteriscos, sem hashtags e sem parênteses."""
                 
                 payload = {"contents": [{"parts": [{"text": prompt}]}]}
@@ -94,7 +95,7 @@ if botao_gerar:
                 arquivos_para_limpar = []
 
                 if tipo_audio == "Apenas Voz Narrada":
-                    with st.spinner("🎙️ Gerando narração com voz humana..."):
+                    with st.spinner("🎙️ Gerando narração com ritmo pausado..."):
                         sucesso = asyncio.run(gerar_audio_neural(texto_do_video, audio_final_path, voice_id))
                         if sucesso:
                             arquivos_para_limpar.append(audio_final_path)
@@ -104,7 +105,7 @@ if botao_gerar:
                             st.stop()
                 
                 elif tipo_audio == "Voz Narrada + Música de Fundo":
-                    with st.spinner("🎛️ Combinando Voz Humana + Música..."):
+                    with st.spinner("🎛️ Combinando Voz + Música..."):
                         sucesso = asyncio.run(gerar_audio_neural(texto_do_video, "voz_temp.mp3", voice_id))
                         if sucesso:
                             arquivos_para_limpar.append("voz_temp.mp3")
@@ -118,6 +119,7 @@ if botao_gerar:
                             
                             mixed_audio = CompositeAudioClip([v_clip, m_clip])
                             mixed_audio.write_audiofile("mix_final.mp3", logger=None)
+                            arquivos_for_limpar = arquivos_para_limpar if 'arquivos_for_limpar' in locals() else arquivos_para_limpar
                             arquivos_para_limpar.append("mix_final.mp3")
                             
                             audio_final_path = "mix_final.mp3"
@@ -132,7 +134,7 @@ if botao_gerar:
                     audio_final_path = "musica_temp.mp3"
                     duracao_audio = min(AudioFileClip(audio_final_path).duration, 15)
 
-                with st.spinner("🎨 Ajustando margens, fonte e posicionando o texto completo..."):
+                with st.spinner("🎨 Posicionando texto legível com fonte maior..."):
                     imagem_fundo_base = Image.open(imagem_carregada).resize((1080, 1920))
                     
                     mapa_cores = {
@@ -143,43 +145,42 @@ if botao_gerar:
                     }
                     cor_texto = mapa_cores[cor_legenda]
 
-                    # Fonte reduzida para tamanho 36 (o ideal para caber mais texto sem ficar ilegível)
+                    # Fonte aumentada para 42 (letras grandes, nítidas e fáceis de ler no telemóvel)
                     try:
-                        font = ImageFont.truetype("fonte.ttf", 36)
+                        font = ImageFont.truetype("fonte.ttf", 42)
                     except:
                         try:
-                            font = ImageFont.truetype("DejaVuSans-Bold.ttf", 36)
+                            font = ImageFont.truetype("DejaVuSans-Bold.ttf", 42)
                         except:
                             font = ImageFont.load_default()
 
                     img_frame = imagem_fundo_base.copy()
                     canvas = ImageDraw.Draw(img_frame)
                     
-                    # Aumentamos o width para 45 (linhas mais compridas, aproveitando as margens laterais da tela)
-                    linhas_roteiro = textwrap.wrap(texto_do_video, width=45)
+                    # Largura otimizada para blocos perfeitos
+                    linhas_roteiro = textwrap.wrap(texto_do_video, width=38)
                     
-                    # Puxamos o texto mais para cima (y_inicial = 850) para dar espaço vertical suficiente para todas as linhas
-                    y_inicial = 850 
+                    # Posição inicial no topo da metade inferior
+                    y_inicial = 900 
                     
                     for linha in linhas_roteiro:
                         try:
                             bbox = canvas.textbbox((0, 0), linha, font=font)
                             largura_linha = bbox[2] - bbox[0]
                         except:
-                            largura_linha = len(linha) * 18
+                            largura_linha = len(linha) * 20
                             
                         pos_x = (1080 - largura_linha) // 2
                         
-                        # Sombra preta grossa à volta para destacar o texto independentemente do fundo
-                        canvas.text((pos_x+3, y_inicial+3), linha, font=font, fill="black")
-                        canvas.text((pos_x+3, y_inicial-3), linha, font=font, fill="black")
-                        canvas.text((pos_x-3, y_inicial+3), linha, font=font, fill="black")
-                        canvas.text((pos_x-3, y_inicial-3), linha, font=font, fill="black")
+                        # Sombra grossa para leitura impecável
+                        canvas.text((pos_x+4, y_inicial+4), linha, font=font, fill="black")
+                        canvas.text((pos_x+4, y_inicial-4), linha, font=font, fill="black")
+                        canvas.text((pos_x-4, y_inicial+4), linha, font=font, fill="black")
+                        canvas.text((pos_x-4, y_inicial-4), linha, font=font, fill="black")
                         
-                        # Texto principal
                         canvas.text((pos_x, y_inicial), linha, font=font, fill=cor_texto)
                         
-                        y_inicial += 46 # Espaçamento ajustado entre as linhas
+                        y_inicial += 52 # Espaçamento proporcional para a fonte 42
 
                     nome_imagem_estatica = "fundo_com_texto_fixo.png"
                     img_frame.save(nome_imagem_estatica)
