@@ -68,7 +68,7 @@ if botao_gerar:
     else:
         with st.spinner("🤖 Google Gemini criando um roteiro polêmico e garantindo mais de 1 minuto..."):
             try:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
                 headers = {'Content-Type': 'application/json'}
                 
                 tamanho_max = "EXATAMENTE entre 170 e 190 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
@@ -82,6 +82,14 @@ if botao_gerar:
                 payload = {"contents": [{"parts": [{"text": prompt}]}]}
                 response = requests.post(url, headers=headers, json=payload)
                 response_json = response.json()
+                
+                if 'error' in response_json:
+                    st.error(f"❌ Erro da API do Gemini: {response_json['error'].get('message', 'Erro desconhecido')}")
+                    st.stop()
+                
+                if 'candidates' not in response_json or len(response_json['candidates']) == 0:
+                    st.error(f"❌ Resposta inesperada da API: {response_json}")
+                    st.stop()
                 
                 texto_do_video = response_json['candidates'][0]['content']['parts'][0]['text'].strip()
                 texto_do_video = texto_do_video.replace("**", "").replace("*", "").replace('"', '')
