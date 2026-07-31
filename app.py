@@ -9,7 +9,7 @@ import textwrap
 
 st.set_page_config(page_title="Super Gerador TikTok Grátis", page_icon="🎬", layout="centered")
 
-st.title("🎬 Fábrica de Vídeos (Texto Otimizado + Voz Pausada)")
+st.title("🎬 Fábrica de Vídeos (Fundo Fixo + 60 a 65 Segundos)")
 st.markdown("Configure o estilo do seu vídeo abaixo e deixe a IA trabalhar.")
 
 try:
@@ -55,8 +55,8 @@ with st.form(key="gerador_video"):
 
 async def gerar_audio_neural(texto, caminho_saida, voz):
     try:
-        # rate="-15%" desacelera ligeiramente a fala para dar um tom cinematográfico e manter os 60+ segundos com menos palavras
-        communicate = edge_tts.Communicate(texto, voz, rate="-15%")
+        # rate="-10%" garante precisão exata para o alvo de 60 a 65 segundos com 135-145 palavras
+        communicate = edge_tts.Communicate(texto, voz, rate="-10%")
         await communicate.save(caminho_saida)
         return True
     except Exception as e:
@@ -68,13 +68,13 @@ if botao_gerar:
     elif "Música" in tipo_audio and not musica_carregada:
         st.error("❌ Você selecionou uma opção com música, mas não enviou o arquivo .mp3!")
     else:
-        with st.spinner("🤖 Google Gemini criando o roteiro focado em leitura visual..."):
+        with st.spinner("🤖 Google Gemini criando o roteiro com a quantidade exata de palavras..."):
             try:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
                 headers = {'Content-Type': 'application/json'}
                 
-                # Reduzimos a quantidade de palavras para o texto caber perfeitamente na tela com letra grande
-                tamanho_max = "EXATAMENTE entre 75 e 85 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
+                # Quantidade ideal e rigorosa para cravar entre 60 e 65 segundos de vídeo
+                tamanho_max = "EXATAMENTE entre 135 e 145 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
                 
                 prompt = f"""Escreva um roteiro para TikTok/Shorts sobre o tema: '{tema}'.
                 O tom deve ser EXALTADO, PROVOCATIVO e um pouco POLÊMICO para prender a atenção e gerar debate na audiência.
@@ -95,7 +95,7 @@ if botao_gerar:
                 arquivos_para_limpar = []
 
                 if tipo_audio == "Apenas Voz Narrada":
-                    with st.spinner("🎙️ Gerando narração com ritmo pausado..."):
+                    with st.spinner("🎙️ Gerando narração com duração exata de 1 minuto..."):
                         sucesso = asyncio.run(gerar_audio_neural(texto_do_video, audio_final_path, voice_id))
                         if sucesso:
                             arquivos_para_limpar.append(audio_final_path)
@@ -119,7 +119,6 @@ if botao_gerar:
                             
                             mixed_audio = CompositeAudioClip([v_clip, m_clip])
                             mixed_audio.write_audiofile("mix_final.mp3", logger=None)
-                            arquivos_for_limpar = arquivos_para_limpar if 'arquivos_for_limpar' in locals() else arquivos_para_limpar
                             arquivos_para_limpar.append("mix_final.mp3")
                             
                             audio_final_path = "mix_final.mp3"
@@ -132,9 +131,9 @@ if botao_gerar:
                         f.write(musica_carregada.getbuffer())
                     arquivos_para_limpar.append("musica_temp.mp3")
                     audio_final_path = "musica_temp.mp3"
-                    duracao_audio = min(AudioFileClip(audio_final_path).duration, 15)
+                    duracao_audio = min(AudioFileClip(audio_final_path).duration, 65)
 
-                with st.spinner("🎨 Posicionando texto legível com fonte maior..."):
+                with st.spinner("🎨 Posicionando o texto completo na tela..."):
                     imagem_fundo_base = Image.open(imagem_carregada).resize((1080, 1920))
                     
                     mapa_cores = {
@@ -145,42 +144,42 @@ if botao_gerar:
                     }
                     cor_texto = mapa_cores[cor_legenda]
 
-                    # Fonte aumentada para 42 (letras grandes, nítidas e fáceis de ler no telemóvel)
+                    # Fonte tamanho 32 otimizada para acomodar até 145 palavras sem cortar
                     try:
-                        font = ImageFont.truetype("fonte.ttf", 42)
+                        font = ImageFont.truetype("fonte.ttf", 32)
                     except:
                         try:
-                            font = ImageFont.truetype("DejaVuSans-Bold.ttf", 42)
+                            font = ImageFont.truetype("DejaVuSans-Bold.ttf", 32)
                         except:
                             font = ImageFont.load_default()
 
                     img_frame = imagem_fundo_base.copy()
                     canvas = ImageDraw.Draw(img_frame)
                     
-                    # Largura otimizada para blocos perfeitos
-                    linhas_roteiro = textwrap.wrap(texto_do_video, width=38)
+                    # Largura ideal de 42 colunas
+                    linhas_roteiro = textwrap.wrap(texto_do_video, width=42)
                     
-                    # Posição inicial no topo da metade inferior
-                    y_inicial = 900 
+                    # Posição inicial no eixo Y ajustada para dar espaço vertical completo
+                    y_inicial = 750 
                     
                     for linha in linhas_roteiro:
                         try:
                             bbox = canvas.textbbox((0, 0), linha, font=font)
                             largura_linha = bbox[2] - bbox[0]
                         except:
-                            largura_linha = len(linha) * 20
+                            largura_linha = len(linha) * 17
                             
                         pos_x = (1080 - largura_linha) // 2
                         
-                        # Sombra grossa para leitura impecável
-                        canvas.text((pos_x+4, y_inicial+4), linha, font=font, fill="black")
-                        canvas.text((pos_x+4, y_inicial-4), linha, font=font, fill="black")
-                        canvas.text((pos_x-4, y_inicial+4), linha, font=font, fill="black")
-                        canvas.text((pos_x-4, y_inicial-4), linha, font=font, fill="black")
+                        # Sombra grossa para legibilidade perfeita
+                        canvas.text((pos_x+3, y_inicial+3), linha, font=font, fill="black")
+                        canvas.text((pos_x+3, y_inicial-3), linha, font=font, fill="black")
+                        canvas.text((pos_x-3, y_inicial+3), linha, font=font, fill="black")
+                        canvas.text((pos_x-3, y_inicial-3), linha, font=font, fill="black")
                         
                         canvas.text((pos_x, y_inicial), linha, font=font, fill=cor_texto)
                         
-                        y_inicial += 52 # Espaçamento proporcional para a fonte 42
+                        y_inicial += 40 # Espaçamento compacto para caber todo o texto
 
                     nome_imagem_estatica = "fundo_com_texto_fixo.png"
                     img_frame.save(nome_imagem_estatica)
