@@ -1,6 +1,7 @@
 streamlit
-requests
-gTTS
-Pillow
-moviepy
+google-genai
 edge-tts
+moviepy
+Pillow
+requests
+numpy
