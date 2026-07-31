@@ -143,10 +143,10 @@ if botao_gerar:
                     cor_texto = mapa_cores[cor_legenda]
 
                     try:
-                        font = ImageFont.truetype("fonte.ttf", 46)
+                        font = ImageFont.truetype("fonte.ttf", 24)
                     except:
                         try:
-                            font = ImageFont.truetype("DejaVuSans-Bold.ttf", 46)
+                            font = ImageFont.truetype("DejaVuSans-Bold.ttf", 24)
                         except:
                             font = ImageFont.load_default()
 
