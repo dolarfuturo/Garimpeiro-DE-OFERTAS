@@ -10,10 +10,12 @@ from PIL import Image, ImageDraw, ImageFont
 if not hasattr(Image, 'ANTIALIAS'):
     Image.ANTIALIAS = Image.Resampling.LANCZOS
 
+# Importação corrigida incluindo o CompositeVideoClip
 from moviepy.editor import (
     AudioFileClip, 
     ImageClip, 
     CompositeAudioClip, 
+    CompositeVideoClip, 
     concatenate_videoclips, 
     VideoFileClip
 )
