@@ -1,12 +1,12 @@
 import streamlit as st
 import os
-import requests
 import asyncio
 import edge_tts 
 import re
 from PIL import Image, ImageDraw, ImageFont
 from moviepy.editor import AudioFileClip, VideoFileClip, CompositeAudioClip
 import textwrap
+from google import genai
 
 st.set_page_config(page_title="Super Gerador TikTok LIVE", page_icon="🎬", layout="centered")
 
@@ -70,8 +70,7 @@ if botao_gerar:
     else:
         with st.spinner("🤖 Google Gemini criando o roteiro focado em LIVE..."):
             try:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
-                headers = {'Content-Type': 'application/json'}
+                client = genai.Client(api_key=api_key)
                 
                 tamanho_max = "cerca de 135 a 145 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
                 
@@ -82,11 +81,16 @@ if botao_gerar:
                 REGRA OBRIGATÓRIA 3: NUNCA repita palavras, sílabas ou crie gaguejos no final das frases. Escreva de forma limpa e natural.
                 Retorne APENAS o texto puro, sem indicações de cena, sem aspas, sem asteriscos, sem hashtags e sem parênteses."""
                 
-                payload = {"contents": [{"parts": [{"text": prompt}]}]}
-                response = requests.post(url, headers=headers, json=payload)
-                response_json = response.json()
+                response = client.models.generate_content(
+                    model='gemini-2.0-flash',
+                    contents=prompt,
+                )
                 
-                texto_do_video = response_json['candidates'][0]['content']['parts'][0]['text'].strip()
+                if not response or not response.text:
+                    st.error("❌ A API do Gemini retornou uma resposta vazia. Tente mudar um pouco o tema.")
+                    st.stop()
+                
+                texto_do_video = response.text.strip()
                 texto_do_video = texto_do_video.replace("**", "").replace("*", "").replace('"', '')
                 
                 texto_do_video = texto_do_video.strip()
