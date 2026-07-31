@@ -278,4 +278,3 @@ if botao_gerar:
                         
             except Exception as e:
                 st.error(f"Erro inesperado no sistema: {e}")
-E
