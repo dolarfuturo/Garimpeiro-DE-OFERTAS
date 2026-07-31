@@ -6,11 +6,17 @@ import edge_tts
 import requests
 from PIL import Image, ImageDraw, ImageFont
 
-# Correção de compatibilidade para versões novas do Pillow (PIL)
+# Correção obrigatória para compatibilidade do Pillow (PIL) com o MoviePy
 if not hasattr(Image, 'ANTIALIAS'):
     Image.ANTIALIAS = Image.Resampling.LANCZOS
 
-from moviepy.editor import AudioFileClip, ImageClip, CompositeAudioClip, concatenate_videoclips, VideoFileClip
+from moviepy.editor import (
+    AudioFileClip, 
+    ImageClip, 
+    CompositeAudioClip, 
+    concatenate_videoclips, 
+    VideoFileClip
+)
 
 st.set_page_config(page_title="Super Gerador TikTok Grátis", page_icon="🎬", layout="centered")
 
