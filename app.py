@@ -18,7 +18,7 @@ except Exception:
     st.stop()
 
 with st.form(key="gerador_video"):
-    tema = st.text_input("Qual o tema do vídeo?", placeholder="Ex: Por que os grandes players usam paridade cambial")
+    tema = st.text_input("Qual o tema do vídeo?", placeholder="Ex: A rivalidade entre Senna e Prost na F1")
     imagem_carregada = st.file_uploader("Suba sua imagem de fundo (.png ou .jpg)", type=["png", "jpg"])
     
     st.markdown("---")
@@ -66,14 +66,15 @@ if botao_gerar:
     elif "Música" in tipo_audio and not musica_carregada:
         st.error("❌ Você selecionou uma opção com música, mas não enviou o arquivo .mp3!")
     else:
-        with st.spinner("🤖 Google Gemini criando um roteiro polêmico e garantindo mais de 1 minuto..."):
+        with st.spinner("🤖 Google Gemini criando um roteiro épico para F1..."):
             try:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+                # Atualizado para o modelo estável e recente do Gemini
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={api_key}"
                 headers = {'Content-Type': 'application/json'}
                 
                 tamanho_max = "EXATAMENTE entre 170 e 190 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
                 
-                prompt = f"""Escreva um roteiro para TikTok/Shorts sobre o tema: '{tema}'.
+                prompt = f"""Escreva um roteiro para TikTok/Shorts sobre o tema de automobilismo/pilotos: '{tema}'.
                 O tom deve ser EXALTADO, PROVOCATIVO e um pouco POLÊMICO para prender a atenção e gerar debate na audiência.
                 REGRA OBRIGATÓRIA 1: O roteiro DEVE terminar com uma afirmação forte, absoluta e controversa (uma "verdade nua e crua") que deixe a audiência revoltada ou com muita vontade de debater. NÃO peça para curtir, compartilhar ou comentar. Apenas jogue a bomba e termine o vídeo abruptamente.
                 REGRA OBRIGATÓRIA 2: O texto total deve ter {tamanho_max}. Isso garante obrigatoriamente que o vídeo ultrapasse 1 minuto para fins de monetização.
@@ -82,6 +83,10 @@ if botao_gerar:
                 payload = {"contents": [{"parts": [{"text": prompt}]}]}
                 response = requests.post(url, headers=headers, json=payload)
                 response_json = response.json()
+                
+                if 'candidates' not in response_json:
+                    st.error(f"Erro na resposta da API do Gemini: {response_json}")
+                    st.stop()
                 
                 texto_do_video = response_json['candidates'][0]['content']['parts'][0]['text'].strip()
                 texto_do_video = texto_do_video.replace("**", "").replace("*", "").replace('"', '')
@@ -130,7 +135,7 @@ if botao_gerar:
                     audio_final_path = "musica_temp.mp3"
                     duracao_audio = min(AudioFileClip(audio_final_path).duration, 15)
 
-                with st.spinner("🎨 Criando legendas sincronizadas sem atraso..."):
+                with st.spinner("🎨 Criando legendas dinâmicas optimizadas..."):
                     imagem_fundo_base = Image.open(imagem_carregada).resize((1080, 1920))
                     
                     mapa_cores = {
@@ -153,13 +158,12 @@ if botao_gerar:
                     
                     if "Voz" in tipo_audio:
                         palavras = texto_do_video.split()
-                        tamanho_grupo = 4 
+                        tamanho_grupo = 3  # Equilíbrio perfeito para sincronia e baixo uso de memória
                         
                         grupos_de_palavras = [" ".join(palavras[i:i + tamanho_grupo]) for i in range(0, len(palavras), tamanho_grupo)]
                         total_palavras_roteiro = len(palavras)
                         
                         for i, frase in enumerate(grupos_de_palavras):
-                            # Sincronização exata por proporção de palavras (sem acumular atraso no final)
                             palavras_na_frase = len(frase.split())
                             peso_da_frase = palavras_na_frase / total_palavras_roteiro
                             duracao_frase = duracao_audio * peso_da_frase
