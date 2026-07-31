@@ -6,7 +6,7 @@ import re
 from PIL import Image, ImageDraw, ImageFont
 from moviepy.editor import AudioFileClip, VideoFileClip, CompositeAudioClip
 import textwrap
-from google import genai
+import google.generativeai as genai
 
 st.set_page_config(page_title="Super Gerador TikTok LIVE", page_icon="🎬", layout="centered")
 
@@ -15,6 +15,7 @@ st.markdown("Configure o tema do seu vídeo voltado para incentivar transmissõe
 
 try:
     api_key = st.secrets["GEMINI_API_KEY"]
+    genai.configure(api_key=api_key)
 except Exception:
     st.error("❌ Chave API não encontrada nos Secrets do Streamlit! Verifique se configurou 'GEMINI_API_KEY' corretamente.")
     st.stop()
@@ -70,7 +71,7 @@ if botao_gerar:
     else:
         with st.spinner("🤖 Google Gemini criando o roteiro focado em LIVE..."):
             try:
-                client = genai.Client(api_key=api_key)
+                model = genai.GenerativeModel('gemini-1.5-flash')
                 
                 tamanho_max = "cerca de 135 a 145 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
                 
@@ -81,10 +82,7 @@ if botao_gerar:
                 REGRA OBRIGATÓRIA 3: NUNCA repita palavras, sílabas ou crie gaguejos no final das frases. Escreva de forma limpa e natural.
                 Retorne APENAS o texto puro, sem indicações de cena, sem aspas, sem asteriscos, sem hashtags e sem parênteses."""
                 
-                response = client.models.generate_content(
-                    model='gemini-1.5-flash',
-                    contents=prompt,
-                )
+                response = model.generate_content(prompt)
                 
                 if not response or not response.text:
                     st.error("❌ A API do Gemini retornou uma resposta vazia. Tente mudar um pouco o tema.")
