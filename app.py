@@ -9,7 +9,7 @@ import textwrap
 
 st.set_page_config(page_title="Super Gerador TikTok Grátis", page_icon="🎬", layout="centered")
 
-st.title("🎬 Fábrica de Vídeos (Fundo Fixo + Texto no Rodapé)")
+st.title("🎬 Fábrica de Vídeos (Fundo Fixo + Texto Ajustado)")
 st.markdown("Configure o estilo do seu vídeo abaixo e deixe a IA trabalhar.")
 
 try:
@@ -67,11 +67,12 @@ if botao_gerar:
     elif "Música" in tipo_audio and not musica_carregada:
         st.error("❌ Você selecionou uma opção com música, mas não enviou o arquivo .mp3!")
     else:
-        with st.spinner("🤖 Google Gemini criando um roteiro polêmico e garantindo mais de 1 minuto..."):
+        with st.spinner("🤖 Google Gemini criando o roteiro..."):
             try:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
                 headers = {'Content-Type': 'application/json'}
                 
+                # Mantemos a regra de tamanho para garantir os 75+ segundos para monetização
                 tamanho_max = "EXATAMENTE entre 170 e 190 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
                 
                 prompt = f"""Escreva um roteiro para TikTok/Shorts sobre o tema: '{tema}'.
@@ -131,7 +132,7 @@ if botao_gerar:
                     audio_final_path = "musica_temp.mp3"
                     duracao_audio = min(AudioFileClip(audio_final_path).duration, 15)
 
-                with st.spinner("🎨 Criando imagem estática com o texto fixo no rodapé..."):
+                with st.spinner("🎨 Ajustando margens, fonte e posicionando o texto completo..."):
                     imagem_fundo_base = Image.open(imagem_carregada).resize((1080, 1920))
                     
                     mapa_cores = {
@@ -142,50 +143,48 @@ if botao_gerar:
                     }
                     cor_texto = mapa_cores[cor_legenda]
 
+                    # Fonte reduzida para tamanho 36 (o ideal para caber mais texto sem ficar ilegível)
                     try:
-                        font = ImageFont.truetype("fonte.ttf", 24)
+                        font = ImageFont.truetype("fonte.ttf", 36)
                     except:
                         try:
-                            font = ImageFont.truetype("DejaVuSans-Bold.ttf", 24)
+                            font = ImageFont.truetype("DejaVuSans-Bold.ttf", 36)
                         except:
                             font = ImageFont.load_default()
 
-                    # Vamos criar UMA ÚNICA imagem estática com o roteiro completo dividido em linhas no rodapé
                     img_frame = imagem_fundo_base.copy()
                     canvas = ImageDraw.Draw(img_frame)
                     
-                    # Quebra o texto total em linhas ajustadas para a largura do vídeo vertical
-                    linhas_roteiro = textwrap.wrap(texto_do_video, width=35)
+                    # Aumentamos o width para 45 (linhas mais compridas, aproveitando as margens laterais da tela)
+                    linhas_roteiro = textwrap.wrap(texto_do_video, width=45)
                     
-                    # Se o texto for muito grande para caber de uma só vez de forma elegante, limitamos ou ajustamos a posição
-                    # Posicionamos o bloco de texto fixo na parte inferior (rodapé)
-                    y_inicial = 1200 # Posição inicial no eixo Y para começar o texto no rodapé
+                    # Puxamos o texto mais para cima (y_inicial = 850) para dar espaço vertical suficiente para todas as linhas
+                    y_inicial = 850 
                     
                     for linha in linhas_roteiro:
                         try:
                             bbox = canvas.textbbox((0, 0), linha, font=font)
                             largura_linha = bbox[2] - bbox[0]
                         except:
-                            largura_linha = len(linha) * 22
+                            largura_linha = len(linha) * 18
                             
                         pos_x = (1080 - largura_linha) // 2
                         
-                        # Sombra preta grossa para garantir legibilidade perfeita sobre qualquer foto de fundo
-                        canvas.text((pos_x+4, y_inicial+4), linha, font=font, fill="black")
-                        canvas.text((pos_x+4, y_inicial-4), linha, font=font, fill="black")
-                        canvas.text((pos_x-4, y_inicial+4), linha, font=font, fill="black")
-                        canvas.text((pos_x-4, y_inicial-4), linha, font=font, fill="black")
+                        # Sombra preta grossa à volta para destacar o texto independentemente do fundo
+                        canvas.text((pos_x+3, y_inicial+3), linha, font=font, fill="black")
+                        canvas.text((pos_x+3, y_inicial-3), linha, font=font, fill="black")
+                        canvas.text((pos_x-3, y_inicial+3), linha, font=font, fill="black")
+                        canvas.text((pos_x-3, y_inicial-3), linha, font=font, fill="black")
                         
-                        # Texto principal na cor escolhida
+                        # Texto principal
                         canvas.text((pos_x, y_inicial), linha, font=font, fill=cor_texto)
                         
-                        y_inicial += 55 # Espaçamento entre linhas
+                        y_inicial += 46 # Espaçamento ajustado entre as linhas
 
                     nome_imagem_estatica = "fundo_com_texto_fixo.png"
                     img_frame.save(nome_imagem_estatica)
                     arquivos_para_limpar.append(nome_imagem_estatica)
                     
-                    # Criamos um único ImageClip estático que dura exatamente o tempo completo do áudio
                     video_final_sem_audio = ImageClip(nome_imagem_estatica).set_duration(duracao_audio)
 
                 with st.spinner("🎬 Renderizando vídeo final..."):
