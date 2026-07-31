@@ -69,8 +69,8 @@ if botao_gerar:
     else:
         with st.spinner("🤖 Google Gemini criando um roteiro polêmico e garantindo mais de 1 minuto..."):
             try:
-                # Usando o modelo padrão atualizado compatível com as novas chaves
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                # Usando gemini-pro para compatibilidade total sem erros 404
+                model = genai.GenerativeModel('gemini-pro')
                 
                 tamanho_max = "EXATAMENTE entre 170 e 190 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
                 
