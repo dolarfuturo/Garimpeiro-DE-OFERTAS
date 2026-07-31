@@ -103,7 +103,7 @@ if botao_gerar:
                         if not texto_do_video.endswith('.'):
                             texto_do_video += '.'
                 
-                st.info(f"📜 **Roteiro Gerado (Total: {len(texto_do_video.split()} palavras):**\n\n_{texto_do_video}_")
+                st.info(f"📜 **Roteiro Gerado (Total: {len(texto_do_video.split())} palavras):**\n\n_{texto_do_video}_")
                 
                 audio_final_path = "audio_gerado_final.mp3"
                 arquivos_para_limpar = []
