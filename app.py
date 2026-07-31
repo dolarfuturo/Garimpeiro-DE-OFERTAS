@@ -10,7 +10,7 @@ import textwrap
 
 st.set_page_config(page_title="Super Gerador TikTok Grátis", page_icon="🎬", layout="centered")
 
-st.title("🎬 Fábrica de Vídeos (Fundo Fixo + Correção Fonética de Nomes)")
+st.title("🎬 Fábrica de Vídeos (Fundo Fixo + Correção de Fim Seco)")
 st.markdown("Configure o estilo do seu vídeo abaixo e deixe a IA trabalhar.")
 
 try:
@@ -68,7 +68,7 @@ if botao_gerar:
     elif "Música" in tipo_audio and not musica_carregada:
         st.error("❌ Você selecionou uma opção com música, mas não enviou o arquivo .mp3!")
     else:
-        with st.spinner("🤖 Google Gemini criando o roteiro otimizado para a voz..."):
+        with st.spinner("🤖 Google Gemini criando o roteiro limpo..."):
             try:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
                 headers = {'Content-Type': 'application/json'}
@@ -80,7 +80,6 @@ if botao_gerar:
                 REGRA OBRIGATÓRIA 1: O roteiro DEVE terminar com uma afirmação forte, absoluta e controversa que deixe a audiência revoltada ou com muita vontade de debater. NÃO peça para curtir, compartilhar ou comentar. Apenas jogue a bomba e termine o vídeo abruptamente.
                 REGRA OBRIGATÓRIA 2: O texto total deve ter {tamanho_max}.
                 REGRA OBRIGATÓRIA 3: NUNCA repita palavras, sílabas ou crie gaguejos no final das frases. Escreva de forma limpa e natural.
-                REGRA OBRIGATÓRIA 4: Para nomes próprios estrangeiros com consoantes mudas no final (como Leclerc), escreva com grafia fonética aportuguesada (por exemplo, escreva 'Lécler' em vez de 'Leclerc') para que a voz neural os pronuncie perfeitamente sem engasgar.
                 Retorne APENAS o texto puro, sem indicações de cena, sem aspas, sem asteriscos, sem hashtags e sem parênteses."""
                 
                 payload = {"contents": [{"parts": [{"text": prompt}]}]}
@@ -90,12 +89,12 @@ if botao_gerar:
                 texto_do_video = response_json['candidates'][0]['content']['parts'][0]['text'].strip()
                 texto_do_video = texto_do_video.replace("**", "").replace("*", "").replace('"', '')
                 
-                # Garante que o texto termina sempre com pontuação correta
+                # Garante que o texto termina sempre com pontuação correta (evita engasgos do TTS em consoantes mudas)
                 texto_do_video = texto_do_video.strip()
                 if not texto_do_video.endswith(('.', '!', '?')):
                     texto_do_video += '.'
                 
-                # Filtro rigoroso anti-gaguejo final
+                # Filtro ultra rigoroso anti-gaguejo final
                 palavras = texto_do_video.split()
                 if len(palavras) > 1:
                     ultima_limpa = re.sub(r'[^\w]', '', palavras[-1]).lower()
