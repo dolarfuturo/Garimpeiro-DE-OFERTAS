@@ -2,9 +2,9 @@ import streamlit as st
 import os
 import asyncio
 import edge_tts 
+import requests
 from PIL import Image, ImageDraw, ImageFont
 from moviepy.editor import AudioFileClip, ImageClip, CompositeAudioClip, concatenate_videoclips, VideoFileClip
-import google.generativeai as genai
 
 st.set_page_config(page_title="Super Gerador TikTok Grátis", page_icon="🎬", layout="centered")
 
@@ -13,7 +13,6 @@ st.markdown("Configure o estilo do seu vídeo abaixo e deixe a IA trabalhar.")
 
 try:
     api_key = st.secrets["GEMINI_API_KEY"]
-    genai.configure(api_key=api_key)
 except Exception:
     st.error("❌ Chave API não encontrada nos Secrets do Streamlit! Verifique se configurou 'GEMINI_API_KEY' corretamente.")
     st.stop()
@@ -69,8 +68,9 @@ if botao_gerar:
     else:
         with st.spinner("🤖 Google Gemini criando um roteiro polêmico e garantindo mais de 1 minuto..."):
             try:
-                # Usando gemini-pro para compatibilidade total sem erros 404
-                model = genai.GenerativeModel('gemini-pro')
+                # Requisição direta via HTTP para evitar qualquer erro de biblioteca do Google
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+                headers = {"Content-Type": "application/json"}
                 
                 tamanho_max = "EXATAMENTE entre 170 e 190 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
                 
@@ -80,13 +80,20 @@ if botao_gerar:
                 REGRA OBRIGATÓRIA 2: O texto total deve ter {tamanho_max}. Isso garante obrigatoriamente que o vídeo ultrapasse 1 minuto para fins de monetização.
                 Retorne APENAS o texto puro, sem indicações de cena, sem aspas, sem asteriscos, sem hashtags e sem parênteses."""
                 
-                response = model.generate_content(prompt)
+                payload = {
+                    "contents": [{
+                        "parts": [{"text": prompt}]
+                    }]
+                }
                 
-                if not response or not response.text:
-                    st.error("❌ A API do Gemini retornou uma resposta vazia ou bloqueada.")
+                response = requests.post(url, headers=headers, json=payload)
+                res_json = response.json()
+                
+                if "error" in res_json:
+                    st.error(f"❌ Erro retornado pela API: {res_json['error'].get('message', 'Erro desconhecido')}")
                     st.stop()
                 
-                texto_do_video = response.text.strip()
+                texto_do_video = res_json['candidates'][0]['content']['parts'][0]['text'].strip()
                 texto_do_video = texto_do_video.replace("**", "").replace("*", "").replace('"', '')
                 
                 st.info(f"📜 **Roteiro Gerado (Total: {len(texto_do_video.split())} palavras):**\n\n_{texto_do_video}_")
