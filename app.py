@@ -68,8 +68,8 @@ if botao_gerar:
     else:
         with st.spinner("🤖 Google Gemini criando um roteiro polêmico e garantindo mais de 1 minuto..."):
             try:
-                # Rota corrigida para a API oficial v1 do Google
-                url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={api_key}"
+                # Rota oficial v1 com o modelo estável gemini-pro
+                url = f"https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={api_key}"
                 headers = {"Content-Type": "application/json"}
                 
                 tamanho_max = "EXATAMENTE entre 170 e 190 palavras" if "Voz" in tipo_audio else "máximo 140 caracteres"
